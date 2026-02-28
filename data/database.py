@@ -1,8 +1,30 @@
 from sqlalchemy import create_engine, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
+from dotenv import load_dotenv
+import os
+import logging
 
-DATABASE_URL = "postgresql://postgres:moskito@localhost:5432/postgres"
+load_dotenv()
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+logger = logging.getLogger(__name__)
+
+
+DB_NAME = os.getenv("DB_NAME")
+USER = os.getenv("USER")
+PASSWORD = os.getenv("PASSWORD")
+HOST = os.getenv("HOST")
+PORT = os.getenv("PORT")
+
+if not all([DB_NAME, USER, PASSWORD, HOST, PORT]):
+    logger.error("Could not extract enviroment variables from .env")
+
+DATABASE_URL = F"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}"
 
 
 def connect_db():
@@ -12,5 +34,20 @@ def connect_db():
 
         with engine.connect() as conexao:
             conexao.execute(text("SELECT 1"))
+        logger.info("CONECTADO")
     except Exception as e:
-        print(f"Erro: {e}")
+        logger.warning(f"Error in connecting with the database or it does not exist yet: {e}")
+        
+        try:
+            logger.info(f"Creating a new database with name {DB_NAME}... ")
+            url = f"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/postgres" # URL padrao
+            temp_engine = create_engine(url, isolation_level="AUTOCOMMIT") # AUTOCOMMIT só é recomendado para conexões temporárias, que é o caso
+            with temp_engine.connect() as conn:
+                conn.execute(text(f"CREATE DATABASE {DB_NAME}"))
+            
+            logger.info(f"Database {DB_NAME} created")
+        except Exception as e:
+            logger.error(f"Error in creating new database: {e}")
+
+if __name__ == '__main__':
+    connect_db()
