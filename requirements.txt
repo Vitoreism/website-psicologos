@@ -1,4 +1,7 @@
+dotenv==0.9.9
 greenlet==3.3.2
+logging==0.4.9.6
 psycopg2-binary==2.9.11
+python-dotenv==1.2.1
 sqlalchemy==2.0.47
 typing-extensions==4.15.0
