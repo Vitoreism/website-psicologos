@@ -1,4 +1,5 @@
 from sqlalchemy import create_engine, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
@@ -27,14 +28,15 @@ if not all([DB_NAME, USER, PASSWORD, HOST, PORT]):
 DATABASE_URL = F"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}"
 
 
-def connect_db():
+def connect_db() -> Engine:
 
     try:
         engine = create_engine(DATABASE_URL)
-
         with engine.connect() as conexao:
             conexao.execute(text("SELECT 1"))
         logger.info("CONECTADO")
+
+        return engine
     except Exception as e:
         logger.warning(f"Error in connecting with the database or it does not exist yet: {e}")
         
@@ -46,6 +48,9 @@ def connect_db():
                 conn.execute(text(f"CREATE DATABASE {DB_NAME}"))
             
             logger.info(f"Database {DB_NAME} created")
+            temp_engine.dispose() # Desliga a engine temporários (Desligar engine != encerrar conexão)
+
+            return create_engine(DATABASE_URL)
         except Exception as e:
             logger.error(f"Error in creating new database: {e}")
 
