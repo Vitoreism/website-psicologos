@@ -3,8 +3,7 @@ CREATE TABLE IF NOT EXISTS psicologos(
     primeiro_nome VARCHAR(100) NOT NULL,
     ultimo_nome  VARCHAR(100) NOT NULL,
     email VARCHAR(150) NOT NULL,
-    senha_hash VARCHAR(255) NOT NULL,
-
+    senha_hash VARCHAR(255) NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS pacientes(
@@ -12,5 +11,5 @@ CREATE TABLE IF NOT EXISTS pacientes(
     primeiro_nome VARCHAR(100) NOT NULL,
     ultimo_nome VARCHAR(100) NOT NULL,
     email VARCHAR(150) NOT NULL,
-    senha_hash VARCHAR(255) NOT NULL.
+    senha_hash VARCHAR(255) NOT NULL
 )
