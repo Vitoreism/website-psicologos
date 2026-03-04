@@ -41,7 +41,7 @@ def run_setup_sql(engine: Engine) -> None:
             conn.commit()
 
 
-        logger.info("Tabelas sincronizadas")
+        logger.info("Table synchronized")
 
     except Exception as e:
         logger.error(f"Could not execute create table code. Error: {e}")
