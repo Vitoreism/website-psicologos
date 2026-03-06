@@ -50,8 +50,21 @@ class PsicologoManager:
             return None
 
 
+    def read_psicologos(self):
+        query = text(f"SELECT * FROM {self.tabela}")
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(query)
+                dados = result.mappings().all()
+            
+            logger.info("Select made with succes")
+            return dados
+        except Exception as e:
+            logger.error(e)
 
 if __name__ == "__main__":
     ps_manager = PsicologoManager(engine=connect_db(), tabela='psicologos')
-    ps_manager.criar_psicologo(primeiro_nome='Laura', ultimo_name='Nogueira', email='laura@gmail.com', senha='Genrolindo123')
-    print(ps_manager)
+    ps_manager.criar_psicologo(primeiro_nome='Vitor', ultimo_name='Machado', email='vitor@gmail.com', senha='Genrolindo123')
+    #print(ps_manager)
+    psicologos = ps_manager.read_psicologos()
+    print(psicologos)
