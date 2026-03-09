@@ -21,7 +21,7 @@ class PsicologoManager:
 
         logger.info("Psicologo Manager object created")
 
-    def criar_psicologo(self, primeiro_nome: str, ultimo_name: str, crp: str,email: str, senha: str) -> Dict:
+    def criar_psicologo(self, primeiro_nome: str, ultimo_name: str, crp: str, email: str, senha: str) -> Dict:
         senha_hash = 'senhateste123'
         # Antes da query
 
@@ -63,9 +63,56 @@ class PsicologoManager:
         except Exception as e:
             logger.error(e)
 
+
+    def update_psicologo(self, crp: str, primeiro_nome: str = None, ultimo_nome: str = None, email: str = None, senha: str = None):
+        """
+        Detalhe -> Essa função irá atualizar o psicólogo de acordo com seu crp, e por motivos de boas práticas e legibilidade do código,
+        esas função não irá permitir com que o crp seja alterado aqui
+        """
+        senha_hash = 'senhateste123'
+        campos_update = list()
+        valores = {'crp_filter': crp}
+
+
+        try:
+            if primeiro_nome:
+                campos_update.append("primeiro_nome = :primeiro_nome")
+                valores["primeiro_nome"] = primeiro_nome
+        
+            if ultimo_nome:
+                campos_update.append("ultimo_nome = :ultimo_nome")
+                valores["ultimo_nome"] = ultimo_nome
+
+            if email:
+                campos_update.append("email = :email")
+                valores["email"] = email
+
+            if senha:
+                campos_update.append("senha_hash = :senha_hash")
+                valores['senha_hash'] = senha_hash
+
+            if not campos_update:
+                logger.warning("No fields to update")
+                return None
+            
+            set_query = ", ".join(campos_update)
+            
+            query = text(f"UPDATE {self.tabela} SET {set_query} WHERE crp = :crp_filter")
+
+            try:
+                with self.engine.connect() as conn:
+                    conn.execute(query, valores)
+                    conn.commit()
+                    logger.info("Psicologo table updated")
+            
+            except Exception as e:
+                logger.error(f"Error while updationg psicologo table: {e}")
+        except Exception as e:
+            logger.error(f"Error in updating psicologo: {e}")
+
 if __name__ == "__main__":
     ps_manager = PsicologoManager(engine=connect_db(), tabela='psicologos')
-    ps_manager.criar_psicologo(primeiro_nome='Vitor', ultimo_name='Machado', email='vitor@gmail.com', senha='Genrolindo123')
+    #ps_manager.criar_psicologo(primeiro_nome='Vitor', ultimo_name='Machado', crp='2424248',email='vitor@gmail.com', senha='Genrolindo123')
     #print(ps_manager)
     psicologos = ps_manager.read_psicologos()
     print(psicologos)
