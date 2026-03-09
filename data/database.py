@@ -77,5 +77,5 @@ def connect_db() -> Engine:
             logger.error(f"Error in creating new database: {e}")
 
 if __name__ == '__main__':
-    ...
+    connect_db()
     

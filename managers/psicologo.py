@@ -21,13 +21,13 @@ class PsicologoManager:
 
         logger.info("Psicologo Manager object created")
 
-    def criar_psicologo(self, primeiro_nome: str, ultimo_name: str, email: str, senha: str) -> Dict:
+    def criar_psicologo(self, primeiro_nome: str, ultimo_name: str, crp: str,email: str, senha: str) -> Dict:
         senha_hash = 'senhateste123'
         # Antes da query
 
         query = text(f"""
-        INSERT INTO {self.tabela} (primeiro_nome, ultimo_nome, email, senha_hash)
-        VALUES (:primeiro_nome, :ultimo_nome, :email, :senha_hash)
+        INSERT INTO {self.tabela} (primeiro_nome, ultimo_nome, crp, email, senha_hash)
+        VALUES (:primeiro_nome, :ultimo_nome, :crp, :email, :senha_hash)
         RETURNING id;
         """
         )
@@ -37,6 +37,7 @@ class PsicologoManager:
                 result = conn.execute(query, {
                     "primeiro_nome": primeiro_nome,
                     "ultimo_nome": ultimo_name,
+                    "crp": crp,
                     "email": email,
                     "senha_hash": senha_hash
                 })
