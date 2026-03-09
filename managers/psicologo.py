@@ -71,7 +71,7 @@ class PsicologoManager:
         """
         senha_hash = 'senhateste123'
         campos_update = list()
-        valores = {'crp_filter': crp}
+        valores = {'crp_filter': str(crp)}
 
 
         try:
@@ -110,9 +110,30 @@ class PsicologoManager:
         except Exception as e:
             logger.error(f"Error in updating psicologo: {e}")
 
+    
+    def delete_psicologo(self, crp: str):
+        query = text(f"DELETE FROM {self.tabela} WHERE crp = :crp_filter")
+
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(query, {"crp_filter": str(crp)})
+                conn.commit()
+
+            if result.rowcount > 0:
+                logger.info(f"Psicólogo com CRP {crp} deletado com sucesso.")
+                return True
+            else:
+                logger.warning(f"Nenhum psicólogo encontrado com o CRP {crp}.")
+                
+
+        except Exception as e:
+            logger.error(f"Erro ao deletar psicologo de crp {crp} : {e}")
+
 if __name__ == "__main__":
     ps_manager = PsicologoManager(engine=connect_db(), tabela='psicologos')
-    #ps_manager.criar_psicologo(primeiro_nome='Vitor', ultimo_name='Machado', crp='2424248',email='vitor@gmail.com', senha='Genrolindo123')
+   # ps_manager.criar_psicologo(primeiro_nome='Vitor', ultimo_name='Machado', crp='2424248',email='vitor@gmail.com', senha='Genrolindo123')
     #print(ps_manager)
+    ps_manager.update_psicologo(crp=2424248, primeiro_nome='Joana', ultimo_nome='Nogueira')
+    #ps_manager.delete_psicologo(crp=2424248)
     psicologos = ps_manager.read_psicologos()
     print(psicologos)
