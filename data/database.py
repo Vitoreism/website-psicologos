@@ -5,8 +5,13 @@ from sqlalchemy.orm import sessionmaker
 from dotenv import load_dotenv
 import os
 import logging
+from pathlib import Path
 
-load_dotenv()
+BASE_DIR = Path(__file__).resolve().parent.parent
+ENV_PATH = BASE_DIR / ".env"
+SETUP_SQL_PATH = Path(__file__).resolve().parent / "setup.sql"
+
+load_dotenv(dotenv_path=ENV_PATH)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,11 +29,12 @@ PORT = os.getenv("PORT")
 
 if not all([DB_NAME, USER, PASSWORD, HOST, PORT]):
     logger.error("Could not extract enviroment variables from .env")
-
-DATABASE_URL = F"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}"
+    DATABASE_URL = None
+else:
+    DATABASE_URL = F"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}"
 
 def run_setup_sql(engine: Engine) -> None:
-    file_path = "C:/Users/vitor/OneDrive/elo-terapeutico/website-psicologos/data/setup.sql"
+    file_path = SETUP_SQL_PATH
 
     try:
         with open(file_path, "r", encoding="utf-8") as file:
@@ -47,6 +53,10 @@ def run_setup_sql(engine: Engine) -> None:
         logger.error(f"Could not execute create table code. Error: {e}")
 
 def connect_db() -> Engine:
+
+    if DATABASE_URL is None:
+        logger.error("Database URL is not configured. Check .env file.")
+        return None
 
     try:
         engine = create_engine(DATABASE_URL)
