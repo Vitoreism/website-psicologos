@@ -42,7 +42,6 @@ def run_setup_sql(engine: Engine) -> None:
 
         with engine.connect() as conn:
             for i in range(len(sql_commands)):
-                print(sql_commands[i])
                 conn.execute(text(sql_commands[i]))
             conn.commit()
 
