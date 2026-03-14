@@ -111,6 +111,22 @@ class PsicologoManager:
             logger.error(f"Error in updating psicologo: {e}")
 
     
+    def buscar_por_crp(self, crp: str) -> Dict | None:
+        query = text(
+            f"SELECT id, primeiro_nome, ultimo_nome, crp, email FROM {self.tabela} WHERE crp = :crp"
+        )
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(query, {"crp": str(crp)})
+                row = result.mappings().first()
+            if row is None:
+                logger.warning(f"ERRO : Nenhum psicólogo encontrado com CRP {crp}.")
+                return None
+            return dict(row)
+        except Exception as e:
+            logger.error(f"Erro ao buscar psicólogo com esse CRP: {e}")
+            return None
+
     def delete_psicologo(self, crp: str):
         query = text(f"DELETE FROM {self.tabela} WHERE crp = :crp_filter")
 
