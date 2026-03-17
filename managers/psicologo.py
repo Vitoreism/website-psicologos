@@ -3,6 +3,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from typing import Dict
 from data.database import connect_db
+from utils.security import Security
 
 
 logging.basicConfig(
@@ -22,7 +23,8 @@ class PsicologoManager:
         logger.info("Psicologo Manager object created")
 
     def criar_psicologo(self, primeiro_nome: str, ultimo_name: str, crp: str, email: str, senha: str) -> Dict:
-        senha_hash = 'senhateste123'
+        security = Security()
+        senha_hash = security.hash_password(senha)
         # Antes da query
 
         query = text(f"""
@@ -69,7 +71,8 @@ class PsicologoManager:
         Detalhe -> Essa função irá atualizar o psicólogo de acordo com seu crp, e por motivos de boas práticas e legibilidade do código,
         esas função não irá permitir com que o crp seja alterado aqui
         """
-        senha_hash = 'senhateste123'
+        security = Security()
+        senha_hash = security.hash_password(senha)
         campos_update = list()
         valores = {'crp_filter': str(crp)}
 
@@ -149,7 +152,7 @@ if __name__ == "__main__":
     ps_manager = PsicologoManager(engine=connect_db(), tabela='psicologos')
     #ps_manager.criar_psicologo(primeiro_nome='Vitor', ultimo_name='Machado', crp='2424248',email='vitor@gmail.com', senha='Genrolindo123')
     #print(ps_manager)
-    ps_manager.update_psicologo(crp=2424248, primeiro_nome='Joana', ultimo_nome='Nogueira')
+    #ps_manager.update_psicologo(crp=2424248, primeiro_nome='Joana', ultimo_nome='Nogueira')
     #ps_manager.delete_psicologo(crp=2424248)
     psicologos = ps_manager.read_psicologos()
     print(psicologos)
