@@ -7,11 +7,9 @@ import os
 import logging
 from pathlib import Path
 
-BASE_DIR = Path(__file__).resolve().parent.parent
-ENV_PATH = BASE_DIR / ".env"
 SETUP_SQL_PATH = Path(__file__).resolve().parent / "setup.sql"
 
-load_dotenv(dotenv_path=ENV_PATH)
+load_dotenv()
 
 logging.basicConfig(
     level=logging.INFO,
@@ -27,7 +25,8 @@ PASSWORD = os.getenv("PASSWORD")
 HOST = os.getenv("HOST")
 PORT = os.getenv("PORT")
 
-if not all([DB_NAME, USER, PASSWORD, HOST, PORT]):
+
+if not all([DB_NAME, USER, PASSWORD, HOST, PORT, SETUP_SQL_PATH]):
     logger.error("Could not extract enviroment variables from .env")
     DATABASE_URL = None
 else:

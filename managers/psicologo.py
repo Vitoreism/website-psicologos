@@ -147,7 +147,7 @@ class PsicologoManager:
 
 if __name__ == "__main__":
     ps_manager = PsicologoManager(engine=connect_db(), tabela='psicologos')
-   # ps_manager.criar_psicologo(primeiro_nome='Vitor', ultimo_name='Machado', crp='2424248',email='vitor@gmail.com', senha='Genrolindo123')
+    #ps_manager.criar_psicologo(primeiro_nome='Vitor', ultimo_name='Machado', crp='2424248',email='vitor@gmail.com', senha='Genrolindo123')
     #print(ps_manager)
     ps_manager.update_psicologo(crp=2424248, primeiro_nome='Joana', ultimo_nome='Nogueira')
     #ps_manager.delete_psicologo(crp=2424248)
