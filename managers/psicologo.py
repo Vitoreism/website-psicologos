@@ -153,16 +153,34 @@ class PsicologoManager:
             return False
 
 if __name__ == "__main__":
-    # Instancia o manager conectando ao banco
     ps_manager = PsicologoManager(engine=connect_db(), tabela='psicologos')
-    
-    print("\n--- Teste de Listagem Geral (Retornando Lista de DTOs) ---")
+
+    print("\n--- Teste de Criação Manual de Psicólogo ---")
+
+    novo_ps = PsicologoCreate(
+            primeiro_nome="Vasco",
+            ultimo_nome="Da Gama",
+            crp="1995024",
+            email="vascocolina@gigante.com",
+            senha="va4sc0"
+        )
+
+    ps_manager.criar_psicologo(psicologo=novo_ps)
+
+
     lista_psicologos = ps_manager.read_psicologos()
     
     if lista_psicologos:
-        print(f"✅ Encontrados {len(lista_psicologos)} psicólogos:")
+        print(f"{'ID':<5} | {'CRP':<10} | {'NOME COMPLETO':<30} | {'E-MAIL':<35}")
+        print("-" * 95)
+
         for ps in lista_psicologos:
-            # Note como o print agora mostra objetos formatados, sem vazamento!
-            print(f" - [{ps.crp}] {ps.primeiro_nome} {ps.ultimo_nome} | Email: {ps.email}")
+            nome_completo = f"{ps.primeiro_nome} {ps.ultimo_nome}"
+            print(f"{ps.id:<5} | {ps.crp:<10} | {nome_completo:<30} | {ps.email:<35}")
+
+        print("-" * 95)
+        print(f"✅ Total de registros no banco: {len(lista_psicologos)}")
     else:
-        print("A lista está vazia.")
+        print(f"{'NENHUM PSICÓLOGO ENCONTRADO NO BANCO DE DADOS':^95}")
+
+    print("="*95 + "\n")    
