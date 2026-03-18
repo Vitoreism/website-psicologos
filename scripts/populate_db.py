@@ -1,155 +1,117 @@
-import hashlib
 import logging
 import sys
-from typing import Dict, List, Tuple
 from pathlib import Path
-
+from typing import Tuple
 from sqlalchemy import text
+from faker import Faker  # pip install faker
+from data.database import connect_db
+import unicodedata
 
+# Ajuste de Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 if str(BASE_DIR) not in sys.path:
     sys.path.insert(0, str(BASE_DIR))
 
 from data.database import connect_db
+from utils.security import Security # Usando sua criptografia real
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    format="%(asctime)s - %(levelname)s - %(message)s",
 )
-
 logger = logging.getLogger(__name__)
+fake = Faker('pt_BR') # Gera nomes e dados brasileiros
 
+def limpar_banco(conn):
+    """Limpa as tabelas para a apresentação."""
+    logger.info("Limpando tabelas de psicólogos e pacientes...")
+    conn.execute(text("DELETE FROM psicologos"))
+    conn.execute(text("DELETE FROM pacientes"))
 
-def hash_senha(senha: str) -> str:
-    """Gera um hash simples para popular dados de exemplo."""
-    return hashlib.sha256(senha.encode("utf-8")).hexdigest()
-
-
-PSICOLOGOS: List[Dict[str, str]] = [
-    {
-        "primeiro_nome": "Vitor",
-        "ultimo_nome": "MosKito",
-        "crp": "2424248",
-        "email": "vitor@gmail.com",
-        "senha": "Genrolindo123",
-    },
-    {
-        "primeiro_nome": "Joana",
-        "ultimo_nome": "Nogueira",
-        "crp": "8787878",
-        "email": "joana@exemplo.com",
-        "senha": "SenhaForte456",
-    },
-    {
-        "primeiro_nome": "Bruno",
-        "ultimo_nome": "Santos",
-        "crp": "5656565",
-        "email": "bruno@exemplo.com",
-        "senha": "OutraSenha789",
-    },
-]
-
-PACIENTES: List[Dict[str, str]] = [
-    {
-        "primeiro_nome": "Ana",
-        "ultimo_nome": "Silva",
-        "email": "ana@exemplo.com",
-        "senha": "Paciente123",
-    },
-    {
-        "primeiro_nome": "Carlos",
-        "ultimo_nome": "Souza",
-        "email": "carlos@exemplo.com",
-        "senha": "Paciente456",
-    },
-    {
-        "primeiro_nome": "Marina",
-        "ultimo_nome": "Lima",
-        "email": "marina@exemplo.com",
-        "senha": "Paciente789",
-    },
-]
-
-
-def popular_psicologos(conn) -> int:
-    query = text(
-        """
+def popular_psicologos(conn, quantidade: int = 100) -> int:
+    query = text("""
         INSERT INTO psicologos (primeiro_nome, ultimo_nome, crp, email, senha_hash)
-        VALUES (:primeiro_nome, :ultimo_nome, :crp, :email, :senha_hash)
-        ON CONFLICT (crp) DO UPDATE
-        SET
-            primeiro_nome = EXCLUDED.primeiro_nome,
-            ultimo_nome = EXCLUDED.ultimo_nome,
-            email = EXCLUDED.email,
-            senha_hash = EXCLUDED.senha_hash;
-        """
-    )
-
-    total = 0
-    for psicologo in PSICOLOGOS:
-        conn.execute(
-            query,
-            {
-                "primeiro_nome": psicologo["primeiro_nome"],
-                "ultimo_nome": psicologo["ultimo_nome"],
-                "crp": psicologo["crp"],
-                "email": psicologo["email"],
-                "senha_hash": hash_senha(psicologo["senha"]),
-            },
+        VALUES (:p_nome, :u_nome, :crp, :email, :s_hash)
+    """)
+    
+    logger.info(f"Gerando {quantidade} psicólogos com e-mails vinculados e validados...")
+    
+    for _ in range(quantidade):
+        p_nome = fake.first_name()
+        u_nome = fake.last_name()
+        
+        # 1. Geramos um CRP aleatório de 7 dígitos
+        crp = str(fake.random_number(digits=7, fix_len=True))
+        
+        # 2. Criamos o domínio aleatório
+        dominio = fake.free_email_domain()
+        
+        # 3. Montamos o e-mail base e REMOVEMOS espaços (essencial para nomes compostos)
+        # O .replace(" ", "") mata o erro que você viu no terminal!
+        email_bruto = f"{p_nome.lower()}.{u_nome.lower()}@{dominio}".replace(" ", "")
+        
+        # 4. Normalização: Remove acentos (ex: 'André' vira 'andre')
+        # Isso garante que o EmailStr do Pydantic aceite o dado
+        email_limpo = (
+            unicodedata.normalize('NFKD', email_bruto)
+            .encode('ascii', 'ignore')
+            .decode('ascii')
         )
-        total += 1
+        
+        # 5. Criptografia usando seu módulo Security oficial
+        senha_hash = Security.hash_password("SenhaTeste123")
+        
+        conn.execute(query, {
+            "p_nome": p_nome,
+            "u_nome": u_nome,
+            "crp": crp,
+            "email": email_limpo,
+            "s_hash": senha_hash
+        })
+        
+    return quantidade
 
-    return total
-
-
-def popular_pacientes(conn) -> int:
-    query = text(
-        """
+def popular_pacientes(conn, quantidade: int = 20) -> int:
+    query = text("""
         INSERT INTO pacientes (primeiro_nome, ultimo_nome, email, senha_hash)
-        SELECT :primeiro_nome, :ultimo_nome, :email, :senha_hash
-        WHERE NOT EXISTS (
-            SELECT 1 FROM pacientes
-            WHERE email = :email
-              AND primeiro_nome = :primeiro_nome
-              AND ultimo_nome = :ultimo_nome
-        );
-        """
-    )
+        VALUES (:p_nome, :u_nome, :email, :s_hash)
+    """)
+    
+    logger.info(f"Gerando {quantidade} pacientes...")
+    for _ in range(quantidade):
+        p_nome = fake.first_name()
+        u_nome = fake.last_name()
+        email = fake.unique.email()
+        senha_hash = Security.hash_password("PacienteTeste123")
+        
+        conn.execute(query, {
+            "p_nome": p_nome, 
+            "u_nome": u_nome, 
+            "email": email, 
+            "s_hash": senha_hash
+        })
+    return quantidade
 
-    inseridos = 0
-    for paciente in PACIENTES:
-        result = conn.execute(
-            query,
-            {
-                "primeiro_nome": paciente["primeiro_nome"],
-                "ultimo_nome": paciente["ultimo_nome"],
-                "email": paciente["email"],
-                "senha_hash": hash_senha(paciente["senha"]),
-            },
-        )
-        inseridos += result.rowcount
-
-    return inseridos
-
-
-def popular_banco() -> Tuple[int, int]:
+def popular_banco():
     engine = connect_db()
     if engine is None:
-        raise RuntimeError("Falha ao criar conexao com o banco.")
+        raise RuntimeError("Falha na conexão.")
 
     with engine.begin() as conn:
-        total_psicologos = popular_psicologos(conn)
-        total_pacientes = popular_pacientes(conn)
+        limpar_banco(conn)
+        total_ps = popular_psicologos(conn, 100)
+        #total_pac = popular_pacientes(conn, 30) 
 
-    return total_psicologos, total_pacientes
-
+    return total_ps
 
 if __name__ == "__main__":
     try:
-        ps_count, pac_count = popular_banco()
-        logger.info("Banco populado com sucesso.")
-        logger.info("Psicologos processados: %s", ps_count)
-        logger.info("Pacientes inseridos: %s", pac_count)
+        ps_count = popular_banco()
+        print("\n" + "="*30)
+        print("BANCO POPULADO")
+        print(f"Psicólogos criados: {ps_count}")
+        print(f"Senha padrão: SenhaTeste123")
+        print("="*30)
     except Exception as exc:
-        logger.error("Erro ao popular banco: %s", exc)
-        raise
+        logger.error(f"Erro: {exc}")
+    
