@@ -6,104 +6,167 @@ from data.database import connect_db
 from managers.psicologo import PsicologoManager
 from schemas.psicologo_schemas import PsicologoCreate, PsicologoUpdate
 
-
 TABLE_NAME = "psicologos"
 
-# -----------------
-# Configuração Tema / Backend
-# -----------------
+# 1. Configuração de Layout e Tema
 st.set_page_config(
-    page_title="Painel de Psicólogos", 
+    page_title="Painel de Psicólogos",
     page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-# Custom CSS for the dashboard feel
+# 2. Injeção de CSS Customizado para o Dashboard High-Fidelity
 st.markdown("""
-<style>
-    /* Metric Card Styling to stand out */
-    div[data-testid="stMetricValue"] {
-        font-size: 2.5rem;
-        color: #2ECC71; /* Emerald Green for metrics */
+    <style>
+    /* Estilização Geral e Fontes */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    
+    html, body, [class*="css"] {
+        font-family: 'Inter', sans-serif;
     }
-</style>
+
+    /* Sidebar - Fundo cinza ligeiramente mais claro */
+    section[data-testid="stSidebar"] {
+        background-color: #1e1e1e !important;
+        border-right: 1px solid #333333;
+    }
+    
+    /* Highlight Azul na Sidebar (O st.radio) */
+    div.row-widget.stRadio > div {
+        background: transparent;
+    }
+    div.row-widget.stRadio > div > label {
+        padding: 10px 15px;
+        border-radius: 8px;
+        margin-bottom: 5px;
+        transition: all 0.3s ease;
+    }
+    div.row-widget.stRadio > div[role="radiogroup"] > label[data-baseweb="radio"]:focus-within {
+        background-color: #007bff20; /* Subtle background change */
+        border-left: 4px solid #007bff; /* Blue highlight bar */
+    }
+
+    /* Título Prominente */
+    h1 {
+        color: #ffffff !important;
+        font-weight: 700 !important;
+        letter-spacing: -0.5px;
+    }
+    
+    /* Container (Cards) */
+    div[data-testid="stVerticalBlockBorderWrapper"] {
+        background-color: #1e1e1e !important;
+        border: 1px solid #333;
+        border-radius: 8px !important;
+        padding: 10px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+
+    /* Inputs (Text Fields) */
+    div[data-baseweb="input"] {
+        background-color: #2b2b2b !important;
+        border: 1px solid #444 !important;
+        border-radius: 8px !important;
+    }
+    div[data-baseweb="input"] > input {
+        color: #fff !important;
+    }
+
+    /* Botões Padrões e Primary */
+    div.stButton > button {
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        padding: 0.5rem 1rem !important;
+        transition: all 0.2s;
+    }
+    div.stButton > button[kind="primary"] {
+        background-color: #007bff !important;
+        color: white !important;
+        border: none !important;
+        box-shadow: 0 4px 12px rgba(0, 123, 255, 0.3) !important;
+    }
+    div.stButton > button[kind="primary"]:hover {
+        background-color: #0056b3 !important;
+    }
+
+    /* Tabela de Dados (DataGrid) Alternating rows natively supported by dark mode theme, 
+       just ensuring text is white and clean */
+    thead tr th {
+        background-color: #2b2b2b !important;
+        color: #007bff !important;
+        font-weight: 600 !important;
+    }
+    
+    </style>
 """, unsafe_allow_html=True)
 
 @st.cache_resource
 def get_psicologo_manager() -> PsicologoManager:
-    try:
-        engine = connect_db()
-        if engine is None:
-            raise RuntimeError("Não foi possível conectar ao banco de dados.")
-        return PsicologoManager(engine=engine, tabela=TABLE_NAME)
-    except Exception as e:
-        raise RuntimeError(f"Falha de conexão: {e}")
+    engine = connect_db()
+    if engine is None:
+        raise RuntimeError("Não foi possível conectar ao banco de dados. Verifique o arquivo .env.")
+    return PsicologoManager(engine=engine, tabela=TABLE_NAME)
 
 def carregar_psicologos(manager: PsicologoManager) -> list[dict]:
-    try:
-        psicologos = manager.read_psicologos()
-        return [psicologo.model_dump() for psicologo in psicologos]
-    except Exception as e:
-        st.error(f"Erro ao carregar psicólogos: {e}")
-        return []
+    psicologos = manager.read_psicologos()
+    return [psicologo.model_dump() for psicologo in psicologos]
 
 def limpar_campo(valor: str) -> str | None:
     valor_limpo = valor.strip()
     return valor_limpo or None
 
-# -----------------
-# Módulos de Visualização (Páginas)
-# -----------------
+# ================================
+# Telas (Views)
+# ================================
 
-def render_dashboard_home(manager: PsicologoManager):
-    st.title("🏠 Dashboard Home")
-    st.markdown("Bem-vindo ao **Painel de Controle**. Resumo atual da plataforma:")
+def render_listagem(manager: PsicologoManager) -> None:
+    st.markdown("### Psicólogos cadastrados")
     
-    psicologos = carregar_psicologos(manager)
-    total_psicologos = len(psicologos)
-    
-    # Metrics
-    col1, col2, col3 = st.columns(3)
-    with col1:
-        st.metric("Total de Psicólogos", f"{total_psicologos}")
-    with col2:
-        st.metric("Usuários Ativos (Simulado)", f"{int(total_psicologos * 0.9)}")
-    with col3:
-        st.metric("Status do Servidor", "Online ✨")
+    with st.container(border=True):
+        st.markdown("<p style='color:#ccc; margin-bottom: 20px;'>Visualize todos os profissionais ativos no sistema.</p>", unsafe_allow_html=True)
         
-    st.divider()
-    
-    st.subheader("🔍 Busca Rápida por CRP")
-    busca_rapida = st.text_input("Digite um CRP para acessar o perfil", placeholder="Ex: 12345/06", key="home_busca")
-    if st.button("Buscar Rápido", type="primary"):
-        if busca_rapida.strip():
-            resultado = manager.buscar_por_crp(busca_rapida.strip())
-            if resultado:
-                st.success(f"✅ Encontrado: {resultado.primeiro_nome} {resultado.ultimo_nome} - E-mail: {resultado.email}")
-            else:
-                st.warning("CRP não localizado na base de dados.")
-        else:
-            st.info("Informe um CRP para buscar.")
+        if st.button("Exibir / Mostrar todos os psicólogos", type="primary", use_container_width=True):
+            psicologos = carregar_psicologos(manager)
 
+            if not psicologos:
+                st.info("Nenhum psicólogo cadastrado na base de dados.")
+                return
 
-def render_gestao_cadastros(manager: PsicologoManager):
-    st.title("📋 Gestão de Cadastros")
-    st.markdown("Gerencie a base de terapeutas. Adicione novos e visualize a tabela completa.")
+            df = pd.DataFrame(psicologos)
+            
+            # Using st.dataframe for a clean, sleek datagrid
+            st.dataframe(
+                df,
+                column_config={
+                    "id": st.column_config.NumberColumn("ID"),
+                    "crp": st.column_config.TextColumn("CRP"),
+                    "primeiro_nome": "Primeiro Nome",
+                    "ultimo_nome": "Último Nome",
+                    "email": "E-mail"
+                },
+                hide_index=True,
+                use_container_width=True
+            )
+
+def render_cadastro(manager: PsicologoManager) -> None:
+    st.markdown("### Cadastrar psicólogo")
     
-    # Formulário de Cadastro (Expander)
-    with st.expander("➕ Adicionar Novo Psicólogo", expanded=False):
-        with st.form("form_cadastro_psicologo", clear_on_submit=False):
-            col_a, col_b = st.columns(2)
-            with col_a:
+    with st.container(border=True):
+        st.markdown("<p style='color:#ccc;'>Preencha os dados abaixo para criar um novo registro.</p>", unsafe_allow_html=True)
+        
+        with st.form("form_cadastro_psicologo", clear_on_submit=True):
+            c1, c2 = st.columns(2)
+            with c1:
                 primeiro_nome = st.text_input("Primeiro nome")
                 ultimo_nome = st.text_input("Último nome")
                 crp = st.text_input("CRP")
-            with col_b:
-                email = st.text_input("E-mail")
+            with c2:
+                email = st.text_input("Email")
                 senha = st.text_input("Senha", type="password")
             
-            submit = st.form_submit_button("Cadastrar Psicólogo", type="primary", use_container_width=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            submit = st.form_submit_button("Cadastrar", type="primary", use_container_width=True)
 
         if submit:
             try:
@@ -116,72 +179,58 @@ def render_gestao_cadastros(manager: PsicologoManager):
                 )
                 novo_id = manager.criar_psicologo(payload)
                 if novo_id is None:
-                    st.error("Não foi possível cadastrar o psicólogo. O CRP ou E-mail podem já existir.")
+                    st.error("Erro: Não foi possível cadastrar o psicólogo. Verifique se o CRP já existe.")
                 else:
-                    st.success(f"✅ Psicólogo {primeiro_nome} cadastrado com sucesso! (Recarregue para ver na tabela)")
+                    st.success(f"✅ Psicólogo cadastrado com sucesso. ID gerado: {novo_id}")
             except ValidationError as exc:
                 st.error(exc.errors()[0]["msg"])
-            except Exception as e:
-                st.error(f"Erro inesperado: {e}")
 
-    st.subheader("Bando de Dados (Visualização Avançada)")
-    psicologos = carregar_psicologos(manager)
-    
-    if not psicologos:
-        st.info("Nenhum psicólogo cadastrado no momento.")
-    else:
-        df = pd.DataFrame(psicologos)
-        
-        st.data_editor(
-            df,
-            column_config={
-                "id": st.column_config.NumberColumn("ID", disabled=True),
-                "crp": st.column_config.TextColumn("CRP", disabled=True),
-                "primeiro_nome": "Nome",
-                "ultimo_nome": "Sobrenome",
-                "email": st.column_config.TextColumn("E-mail", format="mailto:%s")
-            },
-            hide_index=True,
-            use_container_width=True,
-            num_rows="dynamic",
-            key="data_editor_psicologos"
-        )
-        st.caption("A tabela fornece uma visualização interativa (ordenação e redimensionamento). As edições feitas no layout requerem a aba Busca e Edição para persistência no BD.")
-        
+def render_busca(manager: PsicologoManager) -> None:
+    st.markdown("### Buscar por CRP")
 
-def render_busca_edicao(manager: PsicologoManager):
-    st.title("🔍 Busca, Edição e Remoção")
-    st.markdown("Utilize o CRP para localizar, atualizar atributos ou excluir permanentemente um registro.")
-    
-    col_main, _, _ = st.columns([2,1,1])
-    with col_main:
-        crp_alvo = st.text_input("CRP do Psicólogo", help="O CRP é a chave única de identificação.", key="edicao_busca_crp")
-    
-    if not crp_alvo.strip():
-        st.info("Digite um CRP para carregar as opções de edição e remoção.")
-        return
+    with st.container(border=True):
+        crp = st.text_input("Digite o CRP para buscar", key="busca_crp")
         
-    psicologo_data = manager.buscar_por_crp(crp_alvo.strip())
-    
-    if psicologo_data is None:
-        st.error(f"⚠️ Nenhum psicólogo encontrado para o CRP: '{crp_alvo}'.")
-        return
-        
-    st.divider()
-    
-    col_edit, col_del = st.columns([1.2, 1], gap="large")
-    
-    with col_edit:
-        st.subheader("✏️ Atualizar Dados")
-        with st.form("form_atualizar"):
-            primeiro_nome = st.text_input("Nome", value=psicologo_data.primeiro_nome)
-            ultimo_nome = st.text_input("Sobrenome", value=psicologo_data.ultimo_nome)
-            email = st.text_input("E-mail", value=psicologo_data.email)
-            senha = st.text_input("Nova Senha (deixe em branco para manter)", type="password")
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Buscar", key="buscar_psicologo", type="primary", use_container_width=True):
+            if not crp.strip():
+                st.warning("⚠️ Informe um CRP válido.")
+                return
+
+            psicologo = manager.buscar_por_crp(crp.strip())
+            if psicologo is None:
+                st.error("Nenhum psicólogo encontrado para esse CRP.")
+                return
+
+            st.success("✅ Registro Encontrado!")
+            st.json(psicologo.model_dump())
+
+def render_atualizacao(manager: PsicologoManager) -> None:
+    st.markdown("### Atualizar psicólogo")
+
+    with st.container(border=True):
+        with st.form("form_atualizar_psicologo"):
+            st.markdown("<p style='color:#ccc;'>Informe o CRP do profissional e preencha os novos dados.</p>", unsafe_allow_html=True)
             
-            btn_update = st.form_submit_button("Salvar Alterações", type="primary", use_container_width=True)
+            crp = st.text_input("CRP do psicólogo que será atualizado")
+            st.divider()
             
-        if btn_update:
+            c1, c2 = st.columns(2)
+            with c1:
+                primeiro_nome = st.text_input("Novo primeiro nome")
+                ultimo_nome = st.text_input("Novo último nome")
+            with c2:
+                email = st.text_input("Novo email")
+                senha = st.text_input("Nova senha", type="password")
+                
+            st.markdown("<br>", unsafe_allow_html=True)
+            submit = st.form_submit_button("Atualizar", type="primary", use_container_width=True)
+
+        if submit:
+            if not crp.strip():
+                st.warning("⚠️ Informe o CRP do psicólogo.")
+                return
+
             try:
                 payload = PsicologoUpdate(
                     primeiro_nome=limpar_campo(primeiro_nome),
@@ -189,58 +238,68 @@ def render_busca_edicao(manager: PsicologoManager):
                     email=limpar_campo(email),
                     senha=limpar_campo(senha),
                 )
-                manager.update_psicologo(crp_alvo.strip(), payload)
-                st.success("✅ Registro atualizado com sucesso no Banco de Dados!")
+                manager.update_psicologo(crp.strip(), payload)
+                st.success("✅ Atualização enviada. Confira a listagem para validar o resultado.")
             except ValidationError as exc:
                 st.error(exc.errors()[0]["msg"])
-            except Exception as e:
-                st.error(f"Erro ao atualizar: {e}")
-                
-    with col_del:
-        st.subheader("🗑️ Remover Conta")
-        st.warning("⚠️ **Aviso:** Esta ação é irreversível e excluirá o cadastro completamente.")
-        
-        confirmar_delete = st.checkbox("Eu entendo os riscos e confirmo a exclusão", key="chk_del")
-        if st.button("Deletar Psicólogo", type="primary", disabled=not confirmar_delete):
-            try:
-                removido = manager.delete_psicologo(crp_alvo.strip())
-                if removido:
-                    st.success(f"✅ Psicólogo(a) com CRP '{crp_alvo}' removido(a) com sucesso!")
-                else:
-                    st.error("Falha ao remover o registro ou registro já inexistente.")
-            except Exception as e:
-                st.error(f"Ocorreu um erro no banco: {e}")
 
-# -----------------
-# Main Exec
-# -----------------
+def render_exclusao(manager: PsicologoManager) -> None:
+    st.markdown("### Remover psicólogo")
+
+    with st.container(border=True):
+        st.markdown("<p style='color:#ccc;'>Informe o CRP do registro que deseja <b>apagar permanentemente</b>.</p>", unsafe_allow_html=True)
+        crp = st.text_input("CRP do psicólogo que será removido", key="delete_crp")
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Remover Cadastro", type="primary", use_container_width=True):
+            if not crp.strip():
+                st.warning("⚠️ Informe um CRP.")
+                return
+
+            removido = manager.delete_psicologo(crp.strip())
+            if removido:
+                st.success(f"✅ Psicólogo (CRP: {crp.strip()}) removido com sucesso.")
+            else:
+                st.error("Nenhum psicólogo encontrado com esse CRP.")
+
+# ================================
+# Main App
+# ================================
 def main() -> None:
+    
+    st.sidebar.markdown("<h2 style='text-align: center; color: white;'>Painel de Psicólogos</h2>", unsafe_allow_html=True)
+    st.sidebar.markdown("<br>", unsafe_allow_html=True)
+
+    menu = [
+        "📋 Listar Psicólogos", 
+        "🔍 Buscar Psicólogo", 
+        "➕ Cadastrar Psicólogo", 
+        "✏️ Atualizar Psicólogo", 
+        "🗑️ Remover Psicólogo"
+    ]
+    
+    escolha = st.sidebar.radio("Navegação", menu, label_visibility="collapsed")
+
+    # Main area Prominent Title
+    st.markdown("<h1>Interface do banco de dados</h1>", unsafe_allow_html=True)
+    st.markdown("<br>", unsafe_allow_html=True)
+
     try:
         manager = get_psicologo_manager()
     except RuntimeError as exc:
         st.error(str(exc))
         st.stop()
-    except Exception as e:
-        st.error(f"Erro grave: {e}")
-        st.stop()
 
-    # Sidebar setup
-    st.sidebar.title("🧭 Navegação Principal")
-    
-    menu_opcoes = {
-        "🏠 Dashboard Home": render_dashboard_home,
-        "📋 Gestão de Cadastros": render_gestao_cadastros,
-        "🔍 Busca e Edição": render_busca_edicao
-    }
-    
-    escolha = st.sidebar.radio("Escolha a Tela:", list(menu_opcoes.keys()))
-    
-    st.sidebar.divider()
-    st.sidebar.info("Sistema de gerenciamento de psicólogos - CRUD em Streamlit Profissional.", icon="ℹ️")
-
-    # Render Active Page
-    renderizar_pagina = menu_opcoes[escolha]
-    renderizar_pagina(manager)
+    if escolha == "📋 Listar Psicólogos":
+        render_listagem(manager)
+    elif escolha == "🔍 Buscar Psicólogo":
+        render_busca(manager)
+    elif escolha == "➕ Cadastrar Psicólogo":
+        render_cadastro(manager)
+    elif escolha == "✏️ Atualizar Psicólogo":
+        render_atualizacao(manager)
+    elif escolha == "🗑️ Remover Psicólogo":
+        render_exclusao(manager)
 
 if __name__ == "__main__":
     main()
