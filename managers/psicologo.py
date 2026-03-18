@@ -1,7 +1,7 @@
 import logging 
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
-from typing import Dict, List
+from typing import Any, Dict, List
 from data.database import connect_db
 from utils.security import Security
 from schemas.psicologo_schemas import PsicologoBase, PsicologoCreate, PsicologoUpdate, PsicologoResponse
@@ -66,6 +66,56 @@ class PsicologoManager:
         except Exception as e:
             logger.error(e)
             return []
+
+    def gerar_relatorio(self) -> Dict[str, Any]:
+        resumo_query = text(f"""
+            SELECT
+                COUNT(*) AS total_psicologos,
+                COUNT(DISTINCT crp) AS total_crps_unicos,
+                COUNT(DISTINCT email) AS total_emails_unicos,
+                MIN(id) AS primeiro_id_cadastrado,
+                MAX(id) AS ultimo_id_cadastrado
+            FROM {self.tabela}
+        """)
+        dominios_query = text(f"""
+            SELECT
+                split_part(email, '@', 2) AS dominio_email,
+                COUNT(*) AS quantidade
+            FROM {self.tabela}
+            GROUP BY dominio_email
+            ORDER BY quantidade DESC, dominio_email ASC
+        """)
+        pacientes_query = text("SELECT COUNT(*) AS total_pacientes FROM pacientes")
+
+        try:
+            with self.engine.connect() as conn:
+                resumo = conn.execute(resumo_query).mappings().one()
+                dominios = conn.execute(dominios_query).mappings().all()
+
+                total_pacientes = None
+                try:
+                    total_pacientes = conn.execute(pacientes_query).scalar()
+                except Exception as exc:
+                    logger.warning(f"Could not count pacientes table: {exc}")
+
+            return {
+                "resumo": dict(resumo),
+                "dominios_email": [dict(row) for row in dominios],
+                "total_pacientes": total_pacientes,
+            }
+        except Exception as e:
+            logger.error(f"Error while generating report: {e}")
+            return {
+                "resumo": {
+                    "total_psicologos": 0,
+                    "total_crps_unicos": 0,
+                    "total_emails_unicos": 0,
+                    "primeiro_id_cadastrado": None,
+                    "ultimo_id_cadastrado": None,
+                },
+                "dominios_email": [],
+                "total_pacientes": None,
+            }
 
     # Essa função depois vai ser quebrada em funcoes menores, para atualizar cada parte individual que se deseja
     def update_psicologo(self, crp: str, psicologo: PsicologoUpdate):
