@@ -12,6 +12,7 @@ pydantic==2.12.5
 pydantic-core==2.41.5
 python-dotenv==1.2.1
 sqlalchemy==2.0.47
+streamlit==1.44.1
 typing-extensions==4.15.0
 typing-inspection==0.4.2
 tzdata==2025.3
