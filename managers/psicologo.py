@@ -165,7 +165,7 @@ if __name__ == "__main__":
             senha="va4sc0"
         )
 
-    ps_manager.criar_psicologo(psicologo=novo_ps)
+    #ps_manager.criar_psicologo(psicologo=novo_ps)
 
 
     lista_psicologos = ps_manager.read_psicologos()
