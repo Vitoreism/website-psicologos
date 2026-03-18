@@ -181,7 +181,7 @@ def render_cadastro(manager: PsicologoManager) -> None:
                 if novo_id is None:
                     st.error("Erro: Não foi possível cadastrar o psicólogo. Verifique se o CRP já existe.")
                 else:
-                    st.success(f"✅ Psicólogo cadastrado com sucesso. ID gerado: {novo_id}")
+                    st.success(f"Psicólogo cadastrado com sucesso. ID gerado: {novo_id}")
             except ValidationError as exc:
                 st.error(exc.errors()[0]["msg"])
 
@@ -194,7 +194,7 @@ def render_busca(manager: PsicologoManager) -> None:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("Buscar", key="buscar_psicologo", type="primary", use_container_width=True):
             if not crp.strip():
-                st.warning("⚠️ Informe um CRP válido.")
+                st.warning("Informe um CRP válido.")
                 return
 
             psicologo = manager.buscar_por_crp(crp.strip())
@@ -202,7 +202,7 @@ def render_busca(manager: PsicologoManager) -> None:
                 st.error("Nenhum psicólogo encontrado para esse CRP.")
                 return
 
-            st.success("✅ Registro Encontrado!")
+            st.success("Registro Encontrado!")
             st.json(psicologo.model_dump())
 
 def render_atualizacao(manager: PsicologoManager) -> None:
@@ -228,7 +228,7 @@ def render_atualizacao(manager: PsicologoManager) -> None:
 
         if submit:
             if not crp.strip():
-                st.warning("⚠️ Informe o CRP do psicólogo.")
+                st.warning("Informe o CRP do psicólogo.")
                 return
 
             try:
@@ -239,7 +239,7 @@ def render_atualizacao(manager: PsicologoManager) -> None:
                     senha=limpar_campo(senha),
                 )
                 manager.update_psicologo(crp.strip(), payload)
-                st.success("✅ Atualização enviada. Confira a listagem para validar o resultado.")
+                st.success("Atualização enviada. Confira a listagem para validar o resultado.")
             except ValidationError as exc:
                 st.error(exc.errors()[0]["msg"])
 
@@ -253,12 +253,12 @@ def render_exclusao(manager: PsicologoManager) -> None:
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("Remover Cadastro", type="primary", use_container_width=True):
             if not crp.strip():
-                st.warning("⚠️ Informe um CRP.")
+                st.warning("Informe um CRP.")
                 return
 
             removido = manager.delete_psicologo(crp.strip())
             if removido:
-                st.success(f"✅ Psicólogo (CRP: {crp.strip()}) removido com sucesso.")
+                st.success(f"Psicólogo (CRP: {crp.strip()}) removido com sucesso.")
             else:
                 st.error("Nenhum psicólogo encontrado com esse CRP.")
 
@@ -271,17 +271,17 @@ def main() -> None:
     st.sidebar.markdown("<br>", unsafe_allow_html=True)
 
     menu = [
-        "📋 Listar Psicólogos", 
-        "🔍 Buscar Psicólogo", 
-        "➕ Cadastrar Psicólogo", 
-        "✏️ Atualizar Psicólogo", 
-        "🗑️ Remover Psicólogo"
+        " Listar Psicólogos", 
+        " Buscar Psicólogo", 
+        " Cadastrar Psicólogo", 
+        " Atualizar Psicólogo", 
+        " Remover Psicólogo"
     ]
     
     escolha = st.sidebar.radio("Navegação", menu, label_visibility="collapsed")
 
     # Main area Prominent Title
-    st.markdown("<h1>Interface do banco de dados</h1>", unsafe_allow_html=True)
+    st.markdown("<h1>Psicólogos hub</h1>", unsafe_allow_html=True)
     st.markdown("<br>", unsafe_allow_html=True)
 
     try:
@@ -290,15 +290,15 @@ def main() -> None:
         st.error(str(exc))
         st.stop()
 
-    if escolha == "📋 Listar Psicólogos":
+    if escolha == " Listar Psicólogos":
         render_listagem(manager)
-    elif escolha == "🔍 Buscar Psicólogo":
+    elif escolha == " Buscar Psicólogo":
         render_busca(manager)
-    elif escolha == "➕ Cadastrar Psicólogo":
+    elif escolha == " Cadastrar Psicólogo":
         render_cadastro(manager)
-    elif escolha == "✏️ Atualizar Psicólogo":
+    elif escolha == " Atualizar Psicólogo":
         render_atualizacao(manager)
-    elif escolha == "🗑️ Remover Psicólogo":
+    elif escolha == " Remover Psicólogo":
         render_exclusao(manager)
 
 if __name__ == "__main__":
