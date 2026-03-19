@@ -1,5 +1,7 @@
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from typing import Optional
+from utils.validators import validar_senha
+
 
 class PsicologoBase(BaseModel):
     crp: str = Field(min_length=4, description="Registro no Conselho Regional de Psicologia (Identificador unico por psicologo)")
@@ -8,8 +10,17 @@ class PsicologoBase(BaseModel):
     email: EmailStr = Field(description="E-mail válido para contato e login")
 
 class PsicologoCreate(PsicologoBase):
-    senha: str = Field(min_length=6, description="Senha em texto plano")
+    senha: str = Field(min_length=8, description="Senha em texto plano")
 
+    @field_validator('senha')
+    @classmethod
+    def validar_regras_senha(cls, valor_da_senha: str): 
+        senha_valida, mensagem_erro = validar_senha(valor_da_senha)
+        
+        if not senha_valida:
+            raise ValueError(mensagem_erro)
+            
+        return valor_da_senha
 
 class PsicologoUpdate(BaseModel):
     primeiro_nome: Optional[str] = None
