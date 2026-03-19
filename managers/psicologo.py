@@ -58,10 +58,10 @@ class PsicologoManager:
         try:
             with self.engine.connect() as conn:
                 result = conn.execute(query)
-                dados = result.mappings().all()
+                data = result.mappings().all()
             
             logger.info("Select made with succes")
-            psicologos_seguros = [PsicologoResponse(**row) for row in dados]
+            psicologos_seguros = [PsicologoResponse(**row) for row in data]
             return psicologos_seguros
         except Exception as e:
             logger.error(e)
