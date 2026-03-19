@@ -24,13 +24,13 @@ class PsicologoManager:
 
         logger.info("Psicologo Manager object created")
 
-    def criar_psicologo(self, psicologo: PsicologoCreate) -> int | None:
+    def criar_psicologo(self, psicologo: PsicologoCreate) -> PsicologoResponse | None:
         senha_hash = Security.hash_password(psicologo.senha)
 
         query = text(f"""
         INSERT INTO {self.tabela} (primeiro_nome, ultimo_nome, crp, email, senha_hash)
         VALUES (:primeiro_nome, :ultimo_nome, :crp, :email, :senha_hash)
-        RETURNING id;
+        RETURNING id, primeiro_nome, ultimo_nome, email, crp;
         """
         )
 
@@ -44,10 +44,10 @@ class PsicologoManager:
                     "senha_hash": senha_hash
                 })
                 conn.commit()
-                id = result.scalar()
+                psicologo_criado = result.mappings().first()
 
                 logger.info("New psicologo added")
-                return id
+                return psicologo_criado
         except Exception as e:
             logger.error(f"Error in creating new psicologo: {e}")
             return None
