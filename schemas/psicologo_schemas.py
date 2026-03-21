@@ -10,7 +10,7 @@ class PsicologoBase(BaseModel):
     email: EmailStr = Field(description="E-mail válido para contato e login")
 
 class PsicologoCreate(PsicologoBase):
-    senha: str = Field(min_length=8, description="Senha em texto plano")
+    senha: str = Field(description="Senha em texto plano")
 
     @field_validator('senha')
     @classmethod
@@ -27,6 +27,19 @@ class PsicologoUpdate(BaseModel):
     ultimo_nome: Optional[str] = None
     email: Optional[EmailStr] = None
     senha: Optional[str] = None
+
+    @field_validator('senha')
+    @classmethod
+    def validar_regras_senha(cls, valor_da_senha: str | None):
+        if valor_da_senha is None:
+            return valor_da_senha
+
+        senha_valida, mensagem_erro = validar_senha(valor_da_senha)
+
+        if not senha_valida:
+            raise ValueError(mensagem_erro)
+
+        return valor_da_senha
 
 
 class PsicologoResponse(PsicologoBase):
