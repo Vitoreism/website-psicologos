@@ -169,6 +169,8 @@ class PsicologoManager:
                 raise
             except Exception as e:
                 logger.error(f"Error while updationg psicologo table: {e}")
+        except IntegrityError:
+            raise
         except Exception as e:
             logger.error(f"Error in updating psicologo: {e}")
 
