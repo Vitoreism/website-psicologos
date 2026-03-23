@@ -1,5 +1,6 @@
 import logging 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.engine import Engine
 from typing import Any, Dict, List, Optional, Union
 from data.database import connect_db
@@ -47,6 +48,9 @@ class PacienteManager:
                 logger.info("New paciente added")
                 return id
         
+        except IntegrityError as e:
+            logger.warning(f"Violação de unicidade ao criar paciente (email duplicado): {e}")
+            raise
         except Exception as e:
             logger.error(f"Error in creating new paciente: {e}")
             return None
@@ -82,6 +86,9 @@ class PacienteManager:
                 result = conn.execute(query, params)
                 conn.commit()
                 return result.rowcount > 0
+        except IntegrityError as e:
+            logger.warning(f"Violação de unicidade ao atualizar paciente {paciente_id} (email duplicado): {e}")
+            raise
         except Exception as e:
             logger.error(f"Erro no update parcial do paciente {paciente_id}: {e}")
             return False

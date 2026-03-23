@@ -1,5 +1,6 @@
 import logging 
 from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.engine import Engine
 from typing import Any, Dict, List
 from data.database import connect_db
@@ -48,6 +49,9 @@ class PsicologoManager:
 
                 logger.info("New psicologo added")
                 return psicologo_criado
+        except IntegrityError as e:
+            logger.warning(f"Violação de unicidade ao criar psicólogo (email ou CRP duplicado): {e}")
+            raise
         except Exception as e:
             logger.error(f"Error in creating new psicologo: {e}")
             return None
@@ -160,6 +164,9 @@ class PsicologoManager:
                     conn.commit()
                     logger.info("Psicologo table updated")
             
+            except IntegrityError as e:
+                logger.warning(f"Violação de unicidade ao atualizar psicólogo (email duplicado): {e}")
+                raise
             except Exception as e:
                 logger.error(f"Error while updationg psicologo table: {e}")
         except Exception as e:

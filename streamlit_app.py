@@ -1,6 +1,7 @@
-﻿import streamlit as st
+import streamlit as st
 import pandas as pd
 from pydantic import ValidationError
+from sqlalchemy.exc import IntegrityError
 
 from data.database import connect_db
 from managers.psicologo import PsicologoManager
@@ -308,9 +309,11 @@ def render_cadastro(manager: PsicologoManager) -> None:
                 )
                 novo_id = manager.criar_psicologo(payload)
                 if novo_id is None:
-                    st.error("Erro: Não foi possível cadastrar o psicólogo. Verifique se o CRP já existe.")
+                    st.error("Erro: Não foi possível cadastrar o psicólogo. Tente novamente mais tarde.")
                 else:
                     st.success(f"Psicólogo cadastrado com sucesso. ID gerado: {novo_id}")
+            except IntegrityError:
+                st.error("⚠️ Já existe um psicólogo cadastrado com este e-mail ou CRP. Verifique os dados e tente novamente.")
             except ValidationError as exc:
                 st.error(exc.errors()[0]["msg"])
 
@@ -369,6 +372,8 @@ def render_atualizacao(manager: PsicologoManager) -> None:
                 )
                 manager.update_psicologo(crp.strip(), payload)
                 st.success("Atualização enviada. Confira a listagem para validar o resultado.")
+            except IntegrityError:
+                st.error("⚠️ O e-mail informado já está em uso por outro psicólogo. Utilize um e-mail diferente.")
             except ValidationError as exc:
                 st.error(exc.errors()[0]["msg"])
 
