@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, status, Depends
 from sqlalchemy.exc import IntegrityError
-from schemas.psicologo_schemas import PsicologoCreate, PsicologoResponse
+from schemas.psicologo_schemas import PsicologoCreate, PsicologoResponse, PsicologoLogin, PsicologoLoginResponse
 from managers.psicologo import PsicologoManager
 from data.database import connect_db
 from typing import Dict
@@ -33,3 +33,22 @@ def cadastrar_psicologo(
 
     # O FastAPI pega esse dicionário e valida contra o PsicologoResponse automaticamente
     return psico_criado_dict
+
+
+@router.post("/login", response_model=PsicologoLoginResponse, status_code=status.HTTP_200_OK)
+def login_psicologo(
+    credenciais: PsicologoLogin,
+    manager: PsicologoManager = Depends(get_psico_manager)
+):
+    psicologo_auth = manager.autenticar_psicologo(credenciais.email, credenciais.senha)
+    
+    if not psicologo_auth:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="E-mail ou senha incorretos."
+        )
+        
+    return PsicologoLoginResponse(
+        mensagem="Login realizado com sucesso",
+        psicologo=psicologo_auth
+    )

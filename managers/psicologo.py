@@ -191,6 +191,36 @@ class PsicologoManager:
             logger.error(f"Erro ao buscar psicólogo com esse CRP: {e}")
             return None
 
+    def autenticar_psicologo(self, email: str, senha_plana: str) -> PsicologoResponse | None:
+        query = text(
+            f"SELECT id, primeiro_nome, ultimo_nome, crp, email, senha_hash FROM {self.tabela} WHERE email = :email"
+        )
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(query, {"email": email})
+                row = result.mappings().first()
+            
+            if row is None:
+                logger.warning(f"Falha de autenticação para o e-mail {email}: credenciais inválidas.")
+                return None
+            
+            senha_hash_db = row["senha_hash"]
+            
+            # Remove senha_hash from row to pass to Response
+            row_dict = dict(row)
+            del row_dict["senha_hash"]
+            
+            if Security.check_password(senha_plana, senha_hash_db):
+                logger.info(f"Psicólogo {email} autenticado com sucesso.")
+                return PsicologoResponse(**row_dict)
+            else:
+                logger.warning(f"Falha de autenticação para o e-mail {email}: credenciais inválidas.")
+                return None
+
+        except Exception as e:
+            logger.error(f"Erro ao autenticar psicólogo: {e}")
+            return None
+
     def delete_psicologo(self, crp: str) -> bool:
         query = text(f"DELETE FROM {self.tabela} WHERE crp = :crp_filter")
 
