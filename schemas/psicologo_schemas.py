@@ -57,3 +57,13 @@ class PsicologoResponse(PsicologoBase):
     ...
     id: int 
     model_config = ConfigDict(from_attributes=True)
+
+
+class PsicologoLogin(BaseModel):
+    email: EmailStr = Field(description="E-mail do psicólogo cadastrado")
+    senha: str = Field(description="Senha em texto plano para autenticação")
+
+
+class PsicologoLoginResponse(BaseModel):
+    mensagem: str = Field(description="Mensagem indicando o resultado do login")
+    psicologo: PsicologoResponse = Field(description="Dados do psicólogo autenticado")
