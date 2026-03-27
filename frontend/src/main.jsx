@@ -7,6 +7,7 @@ import DashboardLayout from './components/dashboard/DashboardLayout.jsx'
 import DashboardOverview from './components/dashboard/DashboardOverview.jsx'
 import DashboardCalendar from './components/dashboard/DashboardCalendar.jsx'
 import DashboardPatients from './components/dashboard/DashboardPatients.jsx'
+import DashboardMetrics from './components/dashboard/DashboardMetrics.jsx'
 import DashboardProfile from './components/dashboard/DashboardProfile.jsx'
 import './index.css'
 
@@ -20,6 +21,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
           <Route index element={<DashboardOverview />} />
           <Route path="agenda" element={<DashboardCalendar />} />
           <Route path="pacientes" element={<DashboardPatients />} />
+          <Route path="faturamento" element={<DashboardMetrics />} />
           <Route path="perfil" element={<DashboardProfile />} />
         </Route>
       </Routes>

@@ -1,5 +1,5 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom';
-import { Home, Calendar, Users, User, LogOut } from 'lucide-react';
+import { Home, Calendar, Users, User, LogOut, BarChart3 } from 'lucide-react';
 
 export function DashboardLayout() {
   const navigate = useNavigate();
@@ -13,6 +13,7 @@ export function DashboardLayout() {
     { name: 'Resumo', path: '/dashboard', icon: Home, end: true },
     { name: 'Agenda', path: '/dashboard/agenda', icon: Calendar },
     { name: 'Pacientes', path: '/dashboard/pacientes', icon: Users },
+    { name: 'Faturamento', path: '/dashboard/faturamento', icon: BarChart3 },
     { name: 'Meu Perfil', path: '/dashboard/perfil', icon: User },
   ];
 
