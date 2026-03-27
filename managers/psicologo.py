@@ -241,35 +241,22 @@ class PsicologoManager:
             logger.error(f"Erro ao deletar psicologo de crp {crp} : {e}")
             return False
 
+
+    def atualizar_google_token(self, psicologo_id: int, refresh_token: str) -> bool:
+        query = text(f"UPDATE {self.tabela} SET google_refresh_token = :token WHERE id = :id")
+
+        try:
+            with self.engine.begin() as conn:
+                result = conn.execute(query, {"token": refresh_token, "id": psicologo_id})
+
+                return result.rowcount > 0
+        
+        except Exception as e:
+            logger.error(f"Erro ao atualizar o google refresh token: {e}")
+            return False
+
+
 if __name__ == "__main__":
     ps_manager = PsicologoManager(engine=connect_db(), tabela='psicologos')
 
-    print("\n--- Teste de Criação Manual de Psicólogo ---")
-
-    novo_ps = PsicologoCreate(
-            primeiro_nome="Vasco",
-            ultimo_nome="Da Gama",
-            crp="1995024",
-            email="vascocolina@gigante.com",
-            senha="va4sc0"
-        )
-
-    #ps_manager.criar_psicologo(psicologo=novo_ps)
-
-
-    lista_psicologos = ps_manager.read_psicologos()
-    
-    if lista_psicologos:
-        print(f"{'ID':<5} | {'CRP':<10} | {'NOME COMPLETO':<30} | {'E-MAIL':<35}")
-        print("-" * 95)
-
-        for ps in lista_psicologos:
-            nome_completo = f"{ps.primeiro_nome} {ps.ultimo_nome}"
-            print(f"{ps.id:<5} | {ps.crp:<10} | {nome_completo:<30} | {ps.email:<35}")
-
-        print("-" * 95)
-        print(f"✅ Total de registros no banco: {len(lista_psicologos)}")
-    else:
-        print(f"{'NENHUM PSICÓLOGO ENCONTRADO NO BANCO DE DADOS':^95}")
-
-    print("="*95 + "\n")    
+    print(ps_manager.atualizar_google_token(psicologo_id=1, refresh_token="VASCO DA GAMA"))
