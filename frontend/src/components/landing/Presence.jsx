@@ -1,6 +1,8 @@
 import { AnimatedSection } from './AnimatedSection';
+import { useNavigate } from 'react-router-dom';
 
 export function Presence() {
+  const navigate = useNavigate();
   return (
     <section className="py-32 bg-cream overflow-hidden" id="presence">
       <div className="max-w-7xl mx-auto px-6 lg:px-16">
@@ -28,7 +30,7 @@ export function Presence() {
               </div>
             </AnimatedSection>
             <AnimatedSection delay={300} className="bg-white/95 backdrop-blur-xl rounded-[2rem] p-8 lg:p-12 shadow-2xl">
-              <form className="space-y-6">
+              <form onSubmit={(e) => { e.preventDefault(); navigate('/auth'); }} className="space-y-6">
                 <div className="grid grid-cols-2 gap-5">
                   <div className="space-y-2">
                     <label className="text-deep-moss text-xs font-bold uppercase tracking-wider ml-1">Nome Completo</label>

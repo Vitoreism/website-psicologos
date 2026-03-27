@@ -1,4 +1,7 @@
+import { useNavigate } from 'react-router-dom';
+
 export function Header() {
+  const navigate = useNavigate();
   return (
     <header className="sticky top-0 z-50 glass-nav border-b border-sage-200/30 px-6 lg:px-16 py-5 flex items-center justify-between">
       <div className="flex items-center gap-3">
@@ -15,7 +18,9 @@ export function Header() {
         <a className="text-sage-700/80 text-sm font-medium hover:text-sage-600 transition-colors" href="#journey">Jornada</a>
         <a className="text-sage-700/80 text-sm font-medium hover:text-sage-600 transition-colors" href="#presence">Presença</a>
       </nav>
-      <button className="bg-sage-600 text-white rounded-full px-8 py-3 text-sm font-semibold hover:bg-sage-700 transition-all hover:shadow-lg hover:shadow-sage-600/20 active:scale-95">
+      <button 
+        onClick={() => navigate('/auth')}
+        className="bg-sage-600 text-white rounded-full px-8 py-3 text-sm font-semibold hover:bg-sage-700 transition-all hover:shadow-lg hover:shadow-sage-600/20 active:scale-95">
         Área do Profissional
       </button>
     </header>
