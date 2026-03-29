@@ -63,6 +63,11 @@ class PsicologoLogin(BaseModel):
     email: EmailStr = Field(description="E-mail do psicólogo cadastrado")
     senha: str = Field(description="Senha em texto plano para autenticação")
 
+    @field_validator('email')
+    @classmethod
+    def validar_regras_email_custom(cls, valor_do_email: str):
+        return valor_do_email.lower().strip()
+
 
 class PsicologoLoginResponse(BaseModel):
     mensagem: str = Field(description="Mensagem indicando o resultado do login")

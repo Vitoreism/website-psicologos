@@ -2,15 +2,37 @@ import { Calendar, Users, Bell, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Skeleton } from '../ui/Skeleton';
+import { authService, psicologoService } from '../../services/api';
 
 export function DashboardOverview() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
+  const [metrics, setMetrics] = useState({ total_pacientes: 0 });
+  const [userName, setUserName] = useState('');
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1200);
-    return () => clearTimeout(timer);
+    loadDashboardData();
   }, []);
+
+  const loadDashboardData = async () => {
+      try {
+          setIsLoading(true);
+          
+          const user = authService.getCurrentUser();
+          if (user && user.primeiro_nome) {
+              setUserName(user.primeiro_nome);
+          }
+
+          const dadosRelatorio = await psicologoService.getDashboardMetrics();
+          setMetrics({
+              total_pacientes: dadosRelatorio.total_pacientes || 0
+          });
+      } catch (error) {
+          console.error("Erro ao carregar dashboard", error);
+      } finally {
+          setIsLoading(false);
+      }
+  };
 
   if (isLoading) {
     return (
@@ -32,7 +54,7 @@ export function DashboardOverview() {
   return (
     <div className="space-y-6 max-w-7xl mx-auto animate-[fade-in_0.3s_ease-out]">
       <div className="mb-8">
-        <h2 className="font-serif text-3xl font-medium mb-2">Olá, Profissional</h2>
+        <h2 className="font-serif text-3xl font-medium mb-2">Olá{userName ? `, ${userName}` : ', Profissional'}</h2>
         <p className="text-sage-600">Seu resumo de hoje, {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}.</p>
       </div>
 
@@ -52,8 +74,8 @@ export function DashboardOverview() {
             <Users size={28} />
           </div>
           <div>
-             <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Novos Pacientes</p>
-             <h3 className="text-3xl font-serif text-deep-moss mt-1">2</h3>
+             <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Total de Pacientes</p>
+             <h3 className="text-3xl font-serif text-deep-moss mt-1">{metrics.total_pacientes}</h3>
           </div>
         </div>
         <div className="bg-white rounded-2xl p-6 border border-sage-100 shadow-sm flex items-center gap-4">
