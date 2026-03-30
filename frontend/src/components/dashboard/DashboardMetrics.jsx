@@ -9,20 +9,9 @@ import {
 export function DashboardMetrics() {
   const [isLoading, setIsLoading] = useState(true);
 
-  const revenueData = [
-    { name: 'Mai', total: 6500 },
-    { name: 'Jun', total: 7200 },
-    { name: 'Jul', total: 8500 },
-    { name: 'Ago', total: 7800 },
-    { name: 'Set', total: 9100 },
-    { name: 'Out', total: 10500 },
-  ];
+  const revenueData = []; // Aguardando backend
 
-  const sourceData = [
-    { name: 'Particular', value: 60 },
-    { name: 'Convênio A', value: 25 },
-    { name: 'Convênio B', value: 15 },
-  ];
+  const sourceData = []; // Aguardando backend
 
   const COLORS = ['#5a7a5a', '#d68c6e', '#d1ded1'];
 
@@ -66,7 +55,7 @@ export function DashboardMetrics() {
           </div>
           <div>
              <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Faturamento no Mês</p>
-             <h3 className="text-3xl font-serif text-deep-moss mt-1">R$ 10.500</h3>
+             <h3 className="text-3xl font-serif text-deep-moss mt-1">R$ 0,00</h3>
           </div>
         </div>
         <div className="bg-white rounded-2xl p-6 border border-sage-100 shadow-sm flex items-center gap-4">
@@ -75,7 +64,7 @@ export function DashboardMetrics() {
           </div>
           <div>
              <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Consultas Realizadas</p>
-             <h3 className="text-3xl font-serif text-deep-moss mt-1">42</h3>
+             <h3 className="text-3xl font-serif text-deep-moss mt-1">0</h3>
           </div>
         </div>
         <div className="bg-white rounded-2xl p-6 border border-sage-100 shadow-sm flex items-center gap-4">
@@ -84,7 +73,7 @@ export function DashboardMetrics() {
           </div>
           <div>
              <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Ticket Médio</p>
-             <h3 className="text-3xl font-serif text-deep-moss mt-1">R$ 250</h3>
+             <h3 className="text-3xl font-serif text-deep-moss mt-1">R$ 0,00</h3>
           </div>
         </div>
       </div>

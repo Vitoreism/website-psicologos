@@ -1,4 +1,4 @@
-import { Calendar, Users, Bell, ArrowRight } from 'lucide-react';
+import { Calendar, Users, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Skeleton } from '../ui/Skeleton';
@@ -41,8 +41,8 @@ export function DashboardOverview() {
           <Skeleton className="h-10 w-64 bg-sage-200/60 rounded-lg" />
           <Skeleton className="h-5 w-96 bg-sage-200/40 rounded-md" />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[1, 2, 3].map(i => <Skeleton key={i} className="h-[104px] rounded-2xl bg-sage-100/50" />)}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {[1, 2].map(i => <Skeleton key={i} className="h-[104px] rounded-2xl bg-sage-100/50" />)}
         </div>
         <div className="mt-8">
           <Skeleton className="h-[400px] rounded-2xl bg-white border border-sage-100/50 shadow-sm" />
@@ -59,7 +59,7 @@ export function DashboardOverview() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl p-6 border border-sage-100 shadow-sm flex items-center gap-4">
           <div className="bg-sage-100 p-4 rounded-full text-sage-600">
             <Calendar size={28} />
@@ -76,15 +76,6 @@ export function DashboardOverview() {
           <div>
              <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Total de Pacientes</p>
              <h3 className="text-3xl font-serif text-deep-moss mt-1">{metrics.total_pacientes}</h3>
-          </div>
-        </div>
-        <div className="bg-white rounded-2xl p-6 border border-sage-100 shadow-sm flex items-center gap-4">
-          <div className="bg-sage-100 p-4 rounded-full text-sage-600">
-            <Bell size={28} />
-          </div>
-          <div>
-             <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Lembretes</p>
-             <h3 className="text-3xl font-serif text-deep-moss mt-1">1</h3>
           </div>
         </div>
       </div>

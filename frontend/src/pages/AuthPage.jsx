@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
 import { authService } from '../services/api';
 
 export function AuthPage() {
@@ -50,9 +50,38 @@ export function AuthPage() {
     }
   };
 
+  const getValidationErrors = () => {
+    if (isLogin) return [];
+    const errors = [];
+    if (!formData.crp || !formData.primeiro_nome || !formData.ultimo_nome || !formData.email || !formData.senha) {
+      errors.push("Todos os campos obrigatórios precisam estar preenchidos.");
+    }
+    
+    const hasUpperCase = /[A-Z]/.test(formData.senha || '');
+    const hasLowerCase = /[a-z]/.test(formData.senha || '');
+    const hasNumbers = /\d/.test(formData.senha || '');
+    const hasValidLength = (formData.senha || '').length >= 8 && (formData.senha || '').length <= 32;
+
+    if (!formData.senha || !hasUpperCase || !hasLowerCase || !hasNumbers || !hasValidLength) {
+      errors.push("Sua senha não atende aos requisitos mínimos de segurança.");
+    }
+    
+    return errors;
+  };
+
+  const validationErrors = getValidationErrors();
+  const isFormValid = isLogin || validationErrors.length === 0;
+
   return (
-    <div className="min-h-screen bg-sage-50 flex items-center justify-center p-6 font-sans">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden p-8 border border-sage-100 relative">
+    <div className="min-h-screen bg-sage-50 flex items-center justify-center p-6 font-sans relative">
+      <button 
+        onClick={() => navigate('/')} 
+        className="fixed top-6 left-6 md:top-8 md:left-8 text-sage-600 hover:text-deep-moss flex items-center gap-2 font-medium transition-all bg-white/80 hover:bg-white backdrop-blur-md px-5 py-2.5 rounded-full border border-sage-200 shadow-sm z-50 hover:-translate-x-1"
+      >
+        <ArrowLeft size={18} /> Voltar ao Início
+      </button>
+
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden p-8 border border-sage-100 relative mt-12 md:mt-0">
         {/* Blob background decoration */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-terracotta-100 rounded-full blur-3xl opacity-50 -z-10 transform translate-x-1/2 -translate-y-1/2"></div>
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-sage-200 rounded-full blur-3xl opacity-50 -z-10 transform -translate-x-1/2 translate-y-1/2"></div>
@@ -93,6 +122,16 @@ export function AuthPage() {
             Cadastrar
           </button>
         </div>
+
+        {(!isLogin && validationErrors.length > 0) && (
+            <div className="mb-4 p-3 rounded-xl bg-terracotta-50 text-terracotta-600 text-sm font-medium border border-terracotta-100 animate-[fade-in_0.3s_ease]">
+               <ul className="list-disc pl-4 space-y-1">
+                 {validationErrors.map((err, i) => (
+                    <li key={i}>{err}</li>
+                 ))}
+               </ul>
+            </div>
+        )}
 
         {errorMsg && (
             <div className="mb-4 p-3 rounded-xl bg-terracotta-50 text-terracotta-600 text-sm font-medium border border-terracotta-100 animate-[fade-in_0.3s_ease]">
@@ -157,7 +196,7 @@ export function AuthPage() {
 
           <button 
             type="submit" 
-            disabled={isLoading}
+            disabled={isLoading || !isFormValid}
             className="w-full bg-sage-600 text-white rounded-xl h-12 mt-6 text-sm font-bold shadow-lg shadow-sage-600/20 hover:bg-sage-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5 active:scale-95"
           >
             {isLoading ? 'Aguarde...' : (isLogin ? 'Entrar' : 'Finalizar Cadastro')}

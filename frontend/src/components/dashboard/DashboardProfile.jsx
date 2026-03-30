@@ -8,8 +8,17 @@ export function DashboardProfile() {
   const [isSaving, setIsSaving] = useState(false);
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
+  const [originalProfile, setOriginalProfile] = useState(null);
   
   const [profile, setProfile] = useState({ primeiro_nome: '', ultimo_nome: '', crp: '', email: '' });
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    if(originalProfile) setProfile(originalProfile);
+    setSuccessMsg('');
+    setErrorMsg('');
+  };
 
   useEffect(() => {
     loadProfile();
@@ -21,12 +30,14 @@ export function DashboardProfile() {
           const currentUser = authService.getCurrentUser();
           if (currentUser && currentUser.crp) {
               const data = await psicologoService.getProfile(currentUser.crp);
-              setProfile({
+              const fetchedProfile = {
                  primeiro_nome: data.primeiro_nome,
                  ultimo_nome: data.ultimo_nome,
                  crp: data.crp,
                  email: data.email
-              });
+              };
+              setProfile(fetchedProfile);
+              setOriginalProfile(fetchedProfile);
           }
       } catch (err) {
           console.error("Erro ao carregar perfil", err);
@@ -48,6 +59,8 @@ export function DashboardProfile() {
             email: profile.email
         });
         setSuccessMsg('Perfil atualizado com sucesso!');
+        setIsEditing(false);
+        setOriginalProfile(profile);
         
         // Atualiza o local storage também
         const currentUser = authService.getCurrentUser();
@@ -114,11 +127,11 @@ export function DashboardProfile() {
                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="text-deep-moss text-xs font-bold uppercase tracking-wider ml-1">Primeiro Nome</label>
-                    <input type="text" value={profile.primeiro_nome} onChange={e => setProfile({...profile, primeiro_nome: e.target.value})} className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 transition-all text-deep-moss outline-none" />
+                    <input type="text" disabled={!isEditing} value={profile.primeiro_nome} onChange={e => setProfile({...profile, primeiro_nome: e.target.value})} className={`w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 transition-all text-deep-moss outline-none ${!isEditing ? 'opacity-70 cursor-not-allowed bg-sage-100/30' : ''}`} />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-deep-moss text-xs font-bold uppercase tracking-wider ml-1">Sobrenome</label>
-                    <input type="text" value={profile.ultimo_nome} onChange={e => setProfile({...profile, ultimo_nome: e.target.value})} className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 transition-all text-deep-moss outline-none" />
+                    <input type="text" disabled={!isEditing} value={profile.ultimo_nome} onChange={e => setProfile({...profile, ultimo_nome: e.target.value})} className={`w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 transition-all text-deep-moss outline-none ${!isEditing ? 'opacity-70 cursor-not-allowed bg-sage-100/30' : ''}`} />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-deep-moss text-xs font-bold uppercase tracking-wider ml-1">CRP</label>
@@ -133,15 +146,26 @@ export function DashboardProfile() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
              <div className="space-y-1.5">
                 <label className="text-deep-moss text-xs font-bold uppercase tracking-wider ml-1">E-mail de Contato (Login)</label>
-                <input type="email" value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 transition-all text-deep-moss outline-none" />
+                <input type="email" disabled={!isEditing} value={profile.email} onChange={e => setProfile({...profile, email: e.target.value})} className={`w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 transition-all text-deep-moss outline-none ${!isEditing ? 'opacity-70 cursor-not-allowed bg-sage-100/30' : ''}`} />
              </div>
           </div>
 
-          <div className="pt-4 flex justify-end">
-            <button disabled={isSaving} type="submit" className="bg-terracotta-500 text-white rounded-xl px-8 py-3 text-sm font-bold shadow-lg shadow-terracotta-500/20 hover:bg-terracotta-600 disabled:opacity-50 transition-all flex items-center gap-2">
-              <Save size={18} />
-              {isSaving ? 'Salvando...' : 'Salvar Alterações'}
-            </button>
+          <div className="pt-4 flex justify-end gap-3">
+            {!isEditing ? (
+               <button type="button" onClick={(e) => { e.preventDefault(); setIsEditing(true); }} className="bg-sage-600 text-white rounded-xl px-8 py-3 text-sm font-bold shadow-md hover:bg-sage-700 transition-all">
+                 Editar Perfil
+               </button>
+            ) : (
+               <>
+                 <button type="button" onClick={handleCancel} className="px-6 py-3 text-sm font-bold text-sage-600 hover:bg-sage-50 rounded-xl transition-all border border-sage-200">
+                   Cancelar
+                 </button>
+                 <button disabled={isSaving} type="submit" className="bg-terracotta-500 text-white rounded-xl px-8 py-3 text-sm font-bold shadow-lg shadow-terracotta-500/20 hover:bg-terracotta-600 disabled:opacity-50 transition-all flex items-center gap-2">
+                   <Save size={18} />
+                   {isSaving ? 'Salvando...' : 'Salvar Alterações'}
+                 </button>
+               </>
+            )}
           </div>
         </form>
       </div>

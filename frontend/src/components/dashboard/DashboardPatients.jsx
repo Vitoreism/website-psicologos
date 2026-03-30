@@ -9,7 +9,7 @@ export function DashboardPatients() {
   
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({ primeiro_nome: '', ultimo_nome: '', email: '', senha: '' });
+  const [formData, setFormData] = useState({ primeiro_nome: '', ultimo_nome: '', email: '' });
   const [submitError, setSubmitError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -37,7 +37,7 @@ export function DashboardPatients() {
       try {
           await pacienteService.create(formData);
           setIsModalOpen(false);
-          setFormData({ primeiro_nome: '', ultimo_nome: '', email: '', senha: '' });
+          setFormData({ primeiro_nome: '', ultimo_nome: '', email: '' });
           await fetchPatients();
       } catch (err) {
           setSubmitError(err.message);
@@ -152,10 +152,6 @@ export function DashboardPatients() {
                         <div className="space-y-1.5">
                                 <label className="text-xs font-bold text-deep-moss uppercase tracking-wider ml-1">E-mail</label>
                                 <input required type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-sage-500 outline-none" />
-                        </div>
-                        <div className="space-y-1.5">
-                                <label className="text-xs font-bold text-deep-moss uppercase tracking-wider ml-1">Senha Padrão (Portal)</label>
-                                <input required minLength={6} type="password" value={formData.senha} onChange={e => setFormData({...formData, senha: e.target.value})} className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-sage-500 outline-none" />
                         </div>
                         <button disabled={isSubmitting} type="submit" className="w-full mt-4 bg-sage-600 hover:bg-sage-700 text-white font-bold h-12 rounded-xl transition cursor-pointer disabled:opacity-50">
                             {isSubmitting ? 'Salvando...' : 'Cadastrar Paciente'}
