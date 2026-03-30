@@ -4,9 +4,8 @@ import pytz
 
 
 class CalendarQueryRequest(BaseModel):
-    email: EmailStr
-    inicio: datetime = Field(description="Horário de início de uma atividade")
-    fim: datetime = Field(description="Horário do fim de uma atividade")
+    inicio: datetime = Field(description="Horário de início de uma atividade") # Já contém o dia a hora em si
+    fim: datetime = Field(description="Horário do fim de uma atividade")  # Já contém o dia e a hora em si 
 
     @field_validator('fim')
     @classmethod
