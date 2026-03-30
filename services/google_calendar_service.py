@@ -64,16 +64,54 @@ class GoogleCalendarService:
         
         return events_result.get('items', [])
 
+    def criar_evento(self, refresh_token: str, titulo: str, inicio: datetime, fim: datetime, descricao: str | None = None, fuso_horario: str = "America/Sao_Paulo") -> dict:
+        client_config = self.flow.client_config
+
+        credentials = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri=client_config.get("token_uri", "https://oauth2.googleapis.com/token"),
+            client_id=client_config["client_id"],
+            client_secret=client_config["client_secret"],
+            scopes=self.scopes
+        )
+
+        service = build('calendar', 'v3', credentials=credentials)
+
+        # Montando o corpo do evento no formato que o Google exige
+        evento_body = {
+            "summary": titulo,
+            "description": descricao,
+            "start": {
+                "dateTime": inicio.isoformat(),
+                "timeZone": fuso_horario,
+            },
+            "end": {
+                "dateTime": fim.isoformat(),
+                "timeZone": fuso_horario,
+            },
+        }
+
+        logger.info(f"Criando evento '{titulo}' de {inicio} a {fim}")
+
+        evento_criado = service.events().insert(
+            calendarId='primary',
+            body=evento_body
+        ).execute()
+
+        logger.info(f"Evento criado com sucesso! ID: {evento_criado.get('id')}")
+        return evento_criado
+
 
 if __name__ == "__main__":
     from managers.psicologo import PsicologoManager
     from data.database import connect_db
     from datetime import datetime, timedelta, time, timezone
 
-    print("--- INICIANDO TESTE ISOLADO DE LEITURA DA AGENDA ---")
+    print("--- INICIANDO TESTE DE CRIAÇÃO DE EVENTO ---")
 
     try:
-        # 1. Instancia o manager e pega o token do banco direto na fonte
+        # 1. Pega o token do banco
         manager = PsicologoManager(engine=connect_db(), tabela="psicologos")
         refresh_token = manager.get_google_refresh_token(psicologo_id=1)
 
@@ -81,7 +119,7 @@ if __name__ == "__main__":
             print("❌ Erro: Psicólogo ID 1 não possui google_refresh_token salvo no banco.")
         else:
             print("✅ Token encontrado no banco! Conectando ao Google Calendar API...")
-            
+
             # 2. Instancia o serviço
             service = GoogleCalendarService(
                 client_secrets_file="credentials.json",
@@ -89,26 +127,29 @@ if __name__ == "__main__":
                 redirect_uri="http://127.0.0.1:8000/api/agendamentos/google-callback"
             )
 
-            # 3. Definindo as datas: Hoje das 10h às 12h (Fuso de Brasília / GMT-3)
-            # É importantíssimo colar o timezone nas datas pra API do Google não achar que é horário de Londres!
+            # 3. Definindo datas do evento de teste: amanhã das 14h às 15h (Brasília)
             fuso_br = timezone(timedelta(hours=-3))
-            hoje = datetime.now(fuso_br).date()
-            
-            inicio_teste = datetime.combine(hoje, time(10, 0), tzinfo=fuso_br)
-            fim_teste = datetime.combine(hoje, time(12, 0), tzinfo=fuso_br)
+            amanha = (datetime.now(fuso_br) + timedelta(days=1)).date()
 
-            # 4. Busca os eventos usando apenas a função nova
-            eventos = service.listar_eventos(refresh_token, inicio_teste, fim_teste)
+            inicio_evento = datetime.combine(amanha, time(14, 0), tzinfo=fuso_br)
+            fim_evento    = datetime.combine(amanha, time(15, 0), tzinfo=fuso_br)
 
-            print(f"\n🎉 SUCESSO! Foram encontrados {len(eventos)} eventos hoje entre 10h e 12h:")
-            for evento in eventos:
-                inicio_ev = evento['start'].get('dateTime', evento['start'].get('date'))
-                titulo = evento.get('summary', 'Sem Título')
-                print(f" -> {inicio_ev} | {titulo}")
+            # 4. Cria o evento chamando a função com parâmetros Python puros
+            evento_criado = service.criar_evento(
+                refresh_token=refresh_token,
+                titulo="[TESTE] Consulta via Elo Terapêutico",
+                inicio=inicio_evento,
+                fim=fim_evento,
+                descricao="Evento de teste criado automaticamente pelo backend.",
+                fuso_horario="America/Sao_Paulo"
+            )
+
+            print(f"\n🎉 SUCESSO! Evento criado na agenda!")
+            print(f" -> Título:  {evento_criado.get('summary')}")
+            print(f" -> Início:  {evento_criado['start'].get('dateTime')}")
+            print(f" -> Fim:     {evento_criado['end'].get('dateTime')}")
+            print(f" -> Link:    {evento_criado.get('htmlLink')}")
 
     except Exception as e:
         logger.error(f"Erro durante o teste: {e}")
         print(f"Teste falhou com erro: {e}")
-
-    
-
