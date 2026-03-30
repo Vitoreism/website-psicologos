@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import psicologos_routes, pacientes_routes
+from api.routes import psicologos_routes, agendamentos_routes
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -29,9 +29,9 @@ app.include_router(
 )
 
 app.include_router(
-    pacientes_routes.router,
-    prefix="/api/pacientes",
-    tags=["Pacientes"]
+    agendamentos_routes.router,
+    prefix="/api/agendamentos",
+    tags=["Agendamentos e Calendário Google"]
 )
 
 @app.exception_handler(RequestValidationError)
