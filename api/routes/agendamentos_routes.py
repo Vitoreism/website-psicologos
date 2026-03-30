@@ -122,6 +122,7 @@ def criar_agendamento(request: CreateEventRequest, service: GoogleCalendarServic
     except HTTPException as http_e:
         raise http_e
     except Exception as e:
+        logger.error(f"Erro inesperado ao criar agendamento: {e}", exc_info=True)
         raise HTTPException(
             status_code=500, 
             detail="Erro interno ao processar o agendamento no Google Calendar"
