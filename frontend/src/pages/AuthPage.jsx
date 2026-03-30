@@ -1,23 +1,87 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, ArrowLeft } from 'lucide-react';
+import { authService } from '../services/api';
 
 export function AuthPage() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    email: '',
+    senha: '',
+    crp: '',
+    primeiro_nome: '',
+    ultimo_nome: ''
+  });
+  const [errorMsg, setErrorMsg] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
   const navigate = useNavigate();
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    // #TODO: Implementar a integracao real com o backend (login / cadastro)
-    // O backend espera o envio destes dados (schemas/psicologo_schemas.py).
-    // Por enquanto, aceita todos e redireciona para o dashboard para fins de teste de UI.
-    navigate('/dashboard');
+  const handleChange = (e) => {
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setIsLoading(true);
+
+    try {
+        if (isLogin) {
+            await authService.login(formData.email, formData.senha);
+            navigate('/dashboard');
+        } else {
+            await authService.register({
+                crp: formData.crp,
+                primeiro_nome: formData.primeiro_nome,
+                ultimo_nome: formData.ultimo_nome,
+                email: formData.email,
+                senha: formData.senha
+            });
+            await authService.login(formData.email, formData.senha);
+            navigate('/dashboard');
+        }
+    } catch (err) {
+        setErrorMsg(err.message);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const getValidationErrors = () => {
+    if (isLogin) return [];
+    const errors = [];
+    if (!formData.crp || !formData.primeiro_nome || !formData.ultimo_nome || !formData.email || !formData.senha) {
+      errors.push("Todos os campos obrigatórios precisam estar preenchidos.");
+    }
+    
+    const hasUpperCase = /[A-Z]/.test(formData.senha || '');
+    const hasLowerCase = /[a-z]/.test(formData.senha || '');
+    const hasNumbers = /\d/.test(formData.senha || '');
+    const hasValidLength = (formData.senha || '').length >= 8 && (formData.senha || '').length <= 32;
+
+    if (!formData.senha || !hasUpperCase || !hasLowerCase || !hasNumbers || !hasValidLength) {
+      errors.push("Sua senha não atende aos requisitos mínimos de segurança.");
+    }
+    
+    return errors;
+  };
+
+  const validationErrors = getValidationErrors();
+  const isFormValid = isLogin || validationErrors.length === 0;
+
   return (
-    <div className="min-h-screen bg-sage-50 flex items-center justify-center p-6 font-sans">
-      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden p-8 border border-sage-100 relative">
+    <div className="min-h-screen bg-sage-50 flex items-center justify-center p-6 font-sans relative">
+      <button 
+        onClick={() => navigate('/')} 
+        className="fixed top-6 left-6 md:top-8 md:left-8 text-sage-600 hover:text-deep-moss flex items-center gap-2 font-medium transition-all bg-white/80 hover:bg-white backdrop-blur-md px-5 py-2.5 rounded-full border border-sage-200 shadow-sm z-50 hover:-translate-x-1"
+      >
+        <ArrowLeft size={18} /> Voltar ao Início
+      </button>
+
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl overflow-hidden p-8 border border-sage-100 relative mt-12 md:mt-0">
         {/* Blob background decoration */}
         <div className="absolute top-0 right-0 w-32 h-32 bg-terracotta-100 rounded-full blur-3xl opacity-50 -z-10 transform translate-x-1/2 -translate-y-1/2"></div>
         <div className="absolute bottom-0 left-0 w-32 h-32 bg-sage-200 rounded-full blur-3xl opacity-50 -z-10 transform -translate-x-1/2 translate-y-1/2"></div>
@@ -46,18 +110,34 @@ export function AuthPage() {
           <button
             type="button"
             className={`flex-1 py-2 text-sm font-semibold rounded-full transition-all ${isLogin ? 'bg-white text-deep-moss shadow-sm' : 'text-sage-600 hover:text-deep-moss'}`}
-            onClick={() => setIsLogin(true)}
+            onClick={() => { setIsLogin(true); setErrorMsg(''); }}
           >
             Entrar
           </button>
           <button
             type="button"
             className={`flex-1 py-2 text-sm font-semibold rounded-full transition-all ${!isLogin ? 'bg-white text-deep-moss shadow-sm' : 'text-sage-600 hover:text-deep-moss'}`}
-            onClick={() => setIsLogin(false)}
+            onClick={() => { setIsLogin(false); setErrorMsg(''); }}
           >
             Cadastrar
           </button>
         </div>
+
+        {(!isLogin && validationErrors.length > 0) && (
+            <div className="mb-4 p-3 rounded-xl bg-terracotta-50 text-terracotta-600 text-sm font-medium border border-terracotta-100 animate-[fade-in_0.3s_ease]">
+               <ul className="list-disc pl-4 space-y-1">
+                 {validationErrors.map((err, i) => (
+                    <li key={i}>{err}</li>
+                 ))}
+               </ul>
+            </div>
+        )}
+
+        {errorMsg && (
+            <div className="mb-4 p-3 rounded-xl bg-terracotta-50 text-terracotta-600 text-sm font-medium border border-terracotta-100 animate-[fade-in_0.3s_ease]">
+                {errorMsg}
+            </div>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           
@@ -65,16 +145,16 @@ export function AuthPage() {
             <>
               <div className="space-y-1.5">
                 <label className="text-deep-moss text-xs font-bold uppercase tracking-wider ml-1">CRP</label>
-                <input required minLength={4} type="text" className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-deep-moss placeholder:text-sage-400" placeholder="Ex: 00/0000" />
+                <input required minLength={4} name="crp" value={formData.crp} onChange={handleChange} type="text" className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-deep-moss placeholder:text-sage-400" placeholder="Ex: 00/0000" />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <label className="text-deep-moss text-xs font-bold uppercase tracking-wider ml-1">Nome</label>
-                  <input required minLength={2} type="text" className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-deep-moss placeholder:text-sage-400" placeholder="Primeiro nome" />
+                  <input required minLength={2} name="primeiro_nome" value={formData.primeiro_nome} onChange={handleChange} type="text" className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-deep-moss placeholder:text-sage-400" placeholder="Primeiro nome" />
                 </div>
                 <div className="space-y-1.5">
                   <label className="text-deep-moss text-xs font-bold uppercase tracking-wider ml-1">Sobrenome</label>
-                  <input required minLength={2} type="text" className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-deep-moss placeholder:text-sage-400" placeholder="Último nome" />
+                  <input required minLength={2} name="ultimo_nome" value={formData.ultimo_nome} onChange={handleChange} type="text" className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-deep-moss placeholder:text-sage-400" placeholder="Último nome" />
                 </div>
               </div>
             </>
@@ -82,7 +162,7 @@ export function AuthPage() {
 
           <div className="space-y-1.5">
             <label className="text-deep-moss text-xs font-bold uppercase tracking-wider ml-1">E-mail</label>
-            <input required type="email" className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-deep-moss placeholder:text-sage-400" placeholder="seuemail@exemplo.com" />
+            <input required name="email" value={formData.email} onChange={handleChange} type="email" className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-deep-moss placeholder:text-sage-400" placeholder="seuemail@exemplo.com" />
           </div>
 
           <div className="space-y-1.5 relative">
@@ -95,6 +175,10 @@ export function AuthPage() {
             <div className="relative">
               <input 
                 required 
+                minLength={8}
+                name="senha"
+                value={formData.senha}
+                onChange={handleChange}
                 type={showPassword ? "text" : "password"} 
                 className="w-full bg-sage-50/50 border border-sage-200 rounded-xl h-12 px-4 pr-10 focus:ring-2 focus:ring-terracotta-500 focus:border-terracotta-500 transition-all text-deep-moss placeholder:text-sage-400" 
                 placeholder="••••••••" 
@@ -107,15 +191,16 @@ export function AuthPage() {
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
             </div>
-            {!isLogin && <p className="text-xs text-sage-500 mt-1 ml-1">A senha precisa seguir as regras de seguranca definidas.</p>}
+            {!isLogin && <p className="text-xs text-sage-500 mt-1 ml-1">A senha precisa ter de 8 a 32 caracteres, incluindo letras (maiúsculas e minúsculas) e números.</p>}
           </div>
 
           <button 
             type="submit" 
-            className="w-full bg-sage-600 text-white rounded-xl h-12 mt-6 text-sm font-bold shadow-lg shadow-sage-600/20 hover:bg-sage-700 transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5 active:scale-95"
+            disabled={isLoading || !isFormValid}
+            className="w-full bg-sage-600 text-white rounded-xl h-12 mt-6 text-sm font-bold shadow-lg shadow-sage-600/20 hover:bg-sage-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 transform hover:-translate-y-0.5 active:scale-95"
           >
-            {isLogin ? 'Entrar' : 'Finalizar Cadastro'}
-            <ArrowRight size={18} />
+            {isLoading ? 'Aguarde...' : (isLogin ? 'Entrar' : 'Finalizar Cadastro')}
+            {!isLoading && <ArrowRight size={18} />}
           </button>
         </form>
         
@@ -125,3 +210,4 @@ export function AuthPage() {
 }
 
 export default AuthPage;
+
