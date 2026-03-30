@@ -3,6 +3,7 @@ from services.google_calendar_service import GoogleCalendarService
 from managers.psicologo import PsicologoManager
 from data.database import connect_db
 import logging
+from schemas.calendar_schemas import CreateEventRequest
 
 logger = logging.getLogger(__name__)
 
@@ -71,3 +72,57 @@ def google_callback(
     except Exception as e:
         logger.error(f"Erro no callback do Google: {e}")
         raise HTTPException(status_code=500, detail="Erro ao processar a autenticação do Google")
+
+
+@router.post("/criar-agendamento")
+def criar_agendamento(request: CreateEventRequest, service: GoogleCalendarService = Depends(get_gc_service), manager: PsicologoManager = Depends(get_psico_manager)):
+    try:
+        # TODO: Pegar psicologo_id do usuário logado
+        psicologo_id = 1
+
+        refresh_token = manager.get_google_refresh_token(psicologo_id=psicologo_id)
+
+        if not refresh_token:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED, 
+                detail="Psicólogo não possui agenda Google vinculada. Use /google-login primeiro."
+            )
+
+        eventos_existentes = service.listar_eventos(
+            refresh_token=refresh_token,
+            inicio=request.inicio,
+            fim=request.fim,
+            fuso_horario=request.fuso_horario
+        )
+
+        logger.info(f"Eventos existentes: {eventos_existentes}")
+        if eventos_existentes:
+            logger.warning(f"Conflito de horário detectado para o psicologo {psicologo_id}")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Já existe um compromisso marcado neste horário."
+            )
+        
+        evento_criado = service.criar_evento(
+            refresh_token=refresh_token,
+            titulo=request.titulo,
+            inicio=request.inicio,
+            fim=request.fim,
+            descricao=request.descricao,
+            fuso_horario=request.fuso_horario
+        )
+
+        return {
+            "mensagem": "Agendamento realizado com sucesso!",
+            "id_google": evento_criado.get("id"),
+            "link": evento_criado.get("htmlLink")
+        }
+
+
+    except HTTPException as http_e:
+        raise http_e
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, 
+            detail="Erro interno ao processar o agendamento no Google Calendar"
+        )

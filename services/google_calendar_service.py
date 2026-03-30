@@ -1,8 +1,9 @@
 from google_auth_oauthlib.flow import Flow 
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
-from datetime import datetime
-import logging 
+from datetime import datetime, timezone
+import pytz
+import logging
 
 
 logger = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ class GoogleCalendarService:
         logger.info('Exchanged code for token successfully')
         return credentials
 
-    def listar_eventos(self, refresh_token: str, inicio: datetime, fim: datetime):
+    def listar_eventos(self, refresh_token: str, inicio: datetime, fim: datetime, fuso_horario: str = "America/Sao_Paulo"):
         client_config = self.flow.client_config
         
         # O grande truque: Recriar a credencial usando apenas o refresh_token do banco!
@@ -48,9 +49,16 @@ class GoogleCalendarService:
         # Constrói o client oficial do Google Calendar API v3
         service = build('calendar', 'v3', credentials=credentials)
         
-        # Formatando as datas para o padrão exigido pelo Google (RFC3339)
-        time_min = inicio.isoformat() + 'Z' if inicio.tzinfo is None else inicio.isoformat()
-        time_max = fim.isoformat() + 'Z' if fim.tzinfo is None else fim.isoformat()
+        # Formatando as datas para UTC (RFC3339) — igual ao que o Google armazena os eventos
+        # Se a datetime vier sem fuso (naive), interpreta como sendo do fuso_horario informado
+        tz = pytz.timezone(fuso_horario)
+        if inicio.tzinfo is None:
+            inicio = tz.localize(inicio)
+        if fim.tzinfo is None:
+            fim = tz.localize(fim)
+
+        time_min = inicio.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+        time_max = fim.astimezone(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
         
         logger.info(f"Buscando eventos na agenda primária de {time_min} a {time_max}")
         
