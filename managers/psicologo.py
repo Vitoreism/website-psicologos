@@ -256,7 +256,25 @@ class PsicologoManager:
             return False
 
 
+    def get_google_refresh_token(self, psicologo_id: int) -> str | None:
+        query = text(f"SELECT google_refresh_token FROM {self.tabela} WHERE id = :id")
+
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(query, {"id": psicologo_id})
+                row = result.mappings().first()
+                
+            if row is None:
+                logger.warning(f"Nenhum psicólogo encontrado com o ID {psicologo_id}.")
+                return None
+            
+            return row["google_refresh_token"]
+        
+        except Exception as e:
+            logger.error(f"Erro ao buscar o google refresh token: {e}")
+            return None
+
 if __name__ == "__main__":
     ps_manager = PsicologoManager(engine=connect_db(), tabela='psicologos')
 
-    print(ps_manager.atualizar_google_token(psicologo_id=1, refresh_token="VASCO DA GAMA"))
+    print(ps_manager.get_google_refresh_token(psicologo_id=1))
