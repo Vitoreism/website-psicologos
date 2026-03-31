@@ -34,7 +34,7 @@ export function Footer() {
           </div>
         </div>
         <div className="flex flex-col md:flex-row justify-between items-center pt-10 border-t border-sage-50 gap-6">
-          <p className="text-sage-400 text-xs tracking-wide">© 2024 Elo Terapêutico. Cultivando conexões humanas.</p>
+          <p className="text-sage-400 text-xs tracking-wide">© 2026 Elo Terapêutico. Cultivando conexões humanas, de humanos para humanos.</p>
           <div className="flex gap-8">
             <a className="text-sage-400 hover:text-sage-600 transition-colors" href="#">
               <span className="material-symbols-outlined text-xl">spa</span>

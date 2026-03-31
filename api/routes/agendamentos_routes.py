@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Request
+from fastapi.responses import RedirectResponse
 from services.google_calendar_service import GoogleCalendarService
 from managers.psicologo import PsicologoManager
 from data.database import connect_db
 import logging
 from schemas.calendar_schemas import CreateEventRequest
+from utils.auth import get_current_psicologo
 
 logger = logging.getLogger(__name__)
 
@@ -23,13 +25,16 @@ def get_gc_service():
     return gc_service_singleton
 
 @router.get("/google-login")
-def google_login(service: GoogleCalendarService = Depends(get_gc_service)):
+def google_login(
+    service: GoogleCalendarService = Depends(get_gc_service),
+    psicologo_id: int = Depends(get_current_psicologo)
+):
     """
     Endpoint 1: Gera a URL de permissão do Google e devolve para o Frontend.
     """
     try:
         logger.info("Gerando URL de autorização do Google Calendar")
-        url = service.get_auth_url()
+        url = service.get_auth_url(state=str(psicologo_id))
         return {"url": url}
     except Exception as e:
         logger.error(f"Erro ao gerar URL de auth: {e}")
@@ -39,6 +44,7 @@ def google_login(service: GoogleCalendarService = Depends(get_gc_service)):
 @router.get("/google-callback")
 def google_callback(
     code: str, 
+    state: str = None,
     service: GoogleCalendarService = Depends(get_gc_service),
     manager: PsicologoManager = Depends(get_psico_manager)
 ):
@@ -55,10 +61,11 @@ def google_callback(
             logger.warning("Atenção: Google não devolveu refresh_token (talvez o app não esteja forçando prompt='consent').")
             # Em modo de teste, às vezes o Google não manda se já houver permissão recente.
         
-        # TODO IMPORTANTE: Atualizar psicologo_id fixo por DADOS DA SESSÃO REAL DO PSICÓLOGO LOGADO!
-
-        # Futuramente, pegar do front o ID do psicólogo, para saber qual deles deverá ter sua coluna de google refresh token atualizada.
-        psicologo_id = 1
+        if not state:
+            logger.error("State (psicologo_id) não recebido do Google.")
+            raise HTTPException(status_code=400, detail="ID de sessão ausente no redirecionamento do Google.")
+            
+        psicologo_id = int(state)
         
         if refresh_token:
             sucesso = manager.atualizar_google_token(psicologo_id=psicologo_id, refresh_token=refresh_token)
@@ -66,19 +73,24 @@ def google_callback(
                 raise HTTPException(status_code=500, detail="Falha ao salvar o token na tabela de psicólogos.")
             logger.info("Refresh Token salvo no banco com sucesso!")
                 
-        # Esse JSON (ou um Redirect para o Frontend) é o que o usuário vai ver como tela final
-        return {"mensagem": "Calendário sincronizado com sucesso!", "psicologo_id": psicologo_id}
+        # Redireciona o navegador de volta para o dashboard do frontend
+        return RedirectResponse(url="http://localhost:5173/dashboard?google=success")
         
+    except HTTPException:
+        return RedirectResponse(url="http://localhost:5173/dashboard?google=error")
     except Exception as e:
         logger.error(f"Erro no callback do Google: {e}")
-        raise HTTPException(status_code=500, detail="Erro ao processar a autenticação do Google")
+        return RedirectResponse(url="http://localhost:5173/dashboard?google=error")
 
 
 @router.post("/criar-agendamento")
-def criar_agendamento(request: CreateEventRequest, service: GoogleCalendarService = Depends(get_gc_service), manager: PsicologoManager = Depends(get_psico_manager)):
+def criar_agendamento(
+    request: CreateEventRequest, 
+    service: GoogleCalendarService = Depends(get_gc_service), 
+    manager: PsicologoManager = Depends(get_psico_manager),
+    psicologo_id: int = Depends(get_current_psicologo)
+):
     try:
-        # TODO: Pegar psicologo_id do usuário logado
-        psicologo_id = 1
 
         refresh_token = manager.get_google_refresh_token(psicologo_id=psicologo_id)
 
@@ -88,21 +100,6 @@ def criar_agendamento(request: CreateEventRequest, service: GoogleCalendarServic
                 detail="Psicólogo não possui agenda Google vinculada. Use /google-login primeiro."
             )
 
-        eventos_existentes = service.listar_eventos(
-            refresh_token=refresh_token,
-            inicio=request.inicio,
-            fim=request.fim,
-            fuso_horario=request.fuso_horario
-        )
-
-        logger.info(f"Eventos existentes: {eventos_existentes}")
-        if eventos_existentes:
-            logger.warning(f"Conflito de horário detectado para o psicologo {psicologo_id}")
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Já existe um compromisso marcado neste horário."
-            )
-        
         evento_criado = service.criar_evento(
             refresh_token=refresh_token,
             titulo=request.titulo,
@@ -127,3 +124,105 @@ def criar_agendamento(request: CreateEventRequest, service: GoogleCalendarServic
             status_code=500, 
             detail="Erro interno ao processar o agendamento no Google Calendar"
         )
+
+
+@router.get("/google-status")
+def google_status(
+    manager: PsicologoManager = Depends(get_psico_manager),
+    psicologo_id: int = Depends(get_current_psicologo)
+):
+    """
+    Verifica se o psicólogo já conectou o Google Calendar.
+    """
+    refresh_token = manager.get_google_refresh_token(psicologo_id=psicologo_id)
+    return {"google_connected": refresh_token is not None and refresh_token != ""}
+
+
+@router.post("/google-disconnect")
+def google_disconnect(
+    manager: PsicologoManager = Depends(get_psico_manager),
+    psicologo_id: int = Depends(get_current_psicologo)
+):
+    """
+    Remove a conexão do Google Calendar limpando o refresh_token do banco.
+    """
+    sucesso = manager.atualizar_google_token(psicologo_id=psicologo_id, refresh_token=None)
+    if not sucesso:
+        raise HTTPException(status_code=500, detail="Falha ao desconectar o Google Calendar.")
+    logger.info(f"Google Calendar desconectado para psicologo_id={psicologo_id}")
+    return {"mensagem": "Google Calendar desconectado com sucesso."}
+
+
+@router.get("/listar-eventos")
+def listar_eventos(
+    inicio: str,
+    fim: str,
+    service: GoogleCalendarService = Depends(get_gc_service),
+    manager: PsicologoManager = Depends(get_psico_manager),
+    psicologo_id: int = Depends(get_current_psicologo)
+):
+    """
+    Lista os eventos do Google Calendar do psicólogo para o período informado.
+    Parâmetros inicio e fim devem ser ISO 8601, ex: 2026-03-01T00:00:00
+    """
+    from datetime import datetime
+
+    try:
+        refresh_token = manager.get_google_refresh_token(psicologo_id=psicologo_id)
+        if not refresh_token:
+            return {"eventos": []}
+
+        inicio_dt = datetime.fromisoformat(inicio)
+        fim_dt = datetime.fromisoformat(fim)
+
+        eventos_google = service.listar_eventos(
+            refresh_token=refresh_token,
+            inicio=inicio_dt,
+            fim=fim_dt,
+            fuso_horario="America/Sao_Paulo"
+        )
+
+        # Formata para o frontend consumir facilmente
+        eventos_formatados = []
+        for ev in eventos_google:
+            start = ev.get("start", {})
+            end = ev.get("end", {})
+            eventos_formatados.append({
+                "id": ev.get("id"),
+                "title": ev.get("summary", "Sem título"),
+                "start": start.get("dateTime", start.get("date", "")),
+                "end": end.get("dateTime", end.get("date", "")),
+                "description": ev.get("description", ""),
+            })
+
+        return {"eventos": eventos_formatados}
+
+    except Exception as e:
+        logger.error(f"Erro ao listar eventos do Google Calendar: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Erro ao buscar eventos do Google Calendar.")
+
+
+@router.delete("/deletar-evento/{event_id}")
+def deletar_evento(
+    event_id: str,
+    service: GoogleCalendarService = Depends(get_gc_service),
+    manager: PsicologoManager = Depends(get_psico_manager),
+    psicologo_id: int = Depends(get_current_psicologo)
+):
+    """
+    Remove um evento do Google Calendar pelo seu ID.
+    """
+    try:
+        refresh_token = manager.get_google_refresh_token(psicologo_id=psicologo_id)
+        if not refresh_token:
+            raise HTTPException(status_code=401, detail="Google Calendar não vinculado.")
+
+        service.deletar_evento(refresh_token=refresh_token, event_id=event_id)
+        logger.info(f"Evento {event_id} deletado para psicologo_id={psicologo_id}")
+        return {"mensagem": "Evento removido com sucesso."}
+
+    except HTTPException as http_e:
+        raise http_e
+    except Exception as e:
+        logger.error(f"Erro ao deletar evento: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail="Erro ao remover o evento do Google Calendar.")
