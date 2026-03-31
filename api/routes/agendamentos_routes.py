@@ -100,6 +100,20 @@ def criar_agendamento(
                 detail="Psicólogo não possui agenda Google vinculada. Use /google-login primeiro."
             )
 
+        # Verifica conflito de horário antes de criar
+        eventos_existentes = service.listar_eventos(
+            refresh_token=refresh_token,
+            inicio=request.inicio,
+            fim=request.fim,
+            fuso_horario=request.fuso_horario
+        )
+        if eventos_existentes:
+            logger.warning(f"Conflito de horário detectado para o psicologo {psicologo_id}")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Já existe um compromisso marcado neste horário."
+            )
+
         evento_criado = service.criar_evento(
             refresh_token=refresh_token,
             titulo=request.titulo,

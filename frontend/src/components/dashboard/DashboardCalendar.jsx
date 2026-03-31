@@ -30,6 +30,7 @@ export function DashboardCalendar() {
 
   const [events, setEvents] = useState([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState(''); // erro do formulário de agendamento
   const [selectedEvent, setSelectedEvent] = useState(null); // evento clicado no calendário
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
 
@@ -47,6 +48,7 @@ export function DashboardCalendar() {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (formError) setFormError(''); // limpa erro ao editar
   };
 
   // Busca eventos do Google Calendar para o mês atual
@@ -109,7 +111,12 @@ export function DashboardCalendar() {
       // Recarrega os eventos do Google para mostrar o novo
       await fetchGoogleEvents();
     } catch (err) {
-      alert('Erro ao criar evento: ' + err.message);
+      // Verifica se é conflito de horário (409)
+      if (err.message.includes('Já existe') || err.message.includes('409') || err.message.includes('compromisso')) {
+        setFormError('Já existe um compromisso neste horário. Escolha outro horário.');
+      } else {
+        setFormError('Erro ao criar evento: ' + err.message);
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -194,18 +201,24 @@ export function DashboardCalendar() {
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto space-y-6 flex flex-col h-full animate-[fade-in_0.5s_ease-out]">
-         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 gap-4 w-full">
-           <div className="space-y-3">
-             <Skeleton className="h-10 w-48 bg-sage-200/60 rounded-lg" />
-             <Skeleton className="h-5 w-80 bg-sage-200/40 rounded-md" />
-           </div>
-           <div className="flex gap-3">
-             <Skeleton className="h-10 w-56 rounded-full bg-sage-200/40" />
-             <Skeleton className="h-10 w-36 rounded-full bg-sage-200/60" />
-           </div>
-         </div>
-         <Skeleton className="flex-1 min-h-[600px] w-full rounded-3xl bg-white border border-sage-100/50 shadow-sm" />
+      <div className="flex flex-col items-center justify-center flex-1 min-h-[600px] gap-4 animate-[fade-in_0.4s_ease-out]">
+        {/* Logo girando como estrela */}
+        <div style={{ animation: 'logo-spin 1.6s ease-in-out infinite' }} className="text-sage-500 drop-shadow-sm">
+          <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" width="72" height="72">
+            <path d="M24 4C22 18 6 22 4 24C6 26 22 30 24 44C26 30 42 26 44 24C42 22 26 18 24 4Z" fill="currentColor" opacity="0.85"/>
+            <circle cx="24" cy="24" fill="currentColor" opacity="0.35" r="6"/>
+          </svg>
+        </div>
+        <p className="text-sage-500 text-sm font-medium tracking-wide">Carregando sua agenda...</p>
+        <style>{`
+          @keyframes logo-spin {
+            0%   { transform: rotate(0deg) scale(1); }
+            25%  { transform: rotate(90deg) scale(1.08); }
+            50%  { transform: rotate(180deg) scale(1); }
+            75%  { transform: rotate(270deg) scale(1.08); }
+            100% { transform: rotate(360deg) scale(1); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -249,7 +262,7 @@ export function DashboardCalendar() {
            {/* Task 2: Bloquear Novo Evento se Google não conectado */}
            <div className="relative group">
              <button 
-               onClick={() => setIsModalOpen(true)}
+               onClick={() => { setIsModalOpen(true); setFormError(''); }}
                disabled={!googleConnected}
                className={`rounded-full px-6 py-2.5 text-sm font-semibold transition-all shadow-md flex items-center gap-2 ${
                  googleConnected 
@@ -386,7 +399,14 @@ export function DashboardCalendar() {
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end gap-3">
+              {/* Mensagem de erro de conflito */}
+              {formError && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 font-medium">
+                  {formError}
+                </div>
+              )}
+
+              <div className="pt-2 flex justify-end gap-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-sage-600 font-semibold hover:bg-sage-50 rounded-full transition-colors">
                   Cancelar
                 </button>
