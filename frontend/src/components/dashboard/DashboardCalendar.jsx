@@ -6,8 +6,9 @@ import startOfWeek from 'date-fns/startOfWeek';
 import getDay from 'date-fns/getDay';
 import ptBR from 'date-fns/locale/pt-BR';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import { Plus, X } from 'lucide-react';
+import { Plus, X, Check, Unlink, Trash2 } from 'lucide-react';
 import { Skeleton } from '../ui/Skeleton';
+import { agendamentoService } from '../../services/api';
 
 const locales = {
   'pt-BR': ptBR,
@@ -23,23 +24,15 @@ const localizer = dateFnsLocalizer({
 
 export function DashboardCalendar() {
   const [isLoading, setIsLoading] = useState(true);
+  const [googleConnected, setGoogleConnected] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isDisconnecting, setIsDisconnecting] = useState(false);
 
-  // Mock events similar to Google Calendar API structure
-  const [events, setEvents] = useState([
-    {
-      id: 'gcal_event_1',
-      title: 'Terapia com Ana Silva',
-      start: new Date(new Date().setHours(14, 0, 0, 0)),
-      end: new Date(new Date().setHours(14, 50, 0, 0)),
-      summary: 'Primeira Sessão', // Google Calendar typically uses 'summary' for title too
-    },
-    {
-      id: 'gcal_event_2',
-      title: 'Acompanhamento Carlos Santos',
-      start: new Date(new Date().setHours(15, 30, 0, 0)),
-      end: new Date(new Date().setHours(16, 20, 0, 0)),
-    },
-  ]);
+  const [events, setEvents] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState(''); // erro do formulário de agendamento
+  const [selectedEvent, setSelectedEvent] = useState(null); // evento clicado no calendário
+  const [isDeletingEvent, setIsDeletingEvent] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -55,61 +48,177 @@ export function DashboardCalendar() {
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
+    if (formError) setFormError(''); // limpa erro ao editar
   };
 
-  const handleSubmit = (e) => {
+  // Busca eventos do Google Calendar para o mês atual
+  const fetchGoogleEvents = async () => {
+    try {
+      const now = new Date();
+      const inicio = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const fim = new Date(now.getFullYear(), now.getMonth() + 2, 0);
+      
+      const data = await agendamentoService.listarEventos(
+        inicio.toISOString().slice(0, 19),
+        fim.toISOString().slice(0, 19)
+      );
+
+      const eventosFormatados = data.eventos.map(ev => ({
+        id: ev.id,
+        title: ev.title,
+        start: new Date(ev.start),
+        end: new Date(ev.end),
+      }));
+
+      setEvents(eventosFormatados);
+    } catch (err) {
+      console.error('Erro ao buscar eventos do Google:', err);
+    }
+  };
+
+  // Cria evento no Google Calendar via API
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.title || !formData.date || !formData.startTime || !formData.endTime) {
       alert('Preencha os campos obrigatórios (Título, Data, Horário Início, Horário Fim).');
       return;
     }
     
-    const startDateTime = new Date(`${formData.date}T${formData.startTime}:00`);
-    const endDateTime = new Date(`${formData.date}T${formData.endTime}:00`);
+    setIsSubmitting(true);
+    try {
+      const startDateTime = `${formData.date}T${formData.startTime}:00`;
+      const endDateTime = `${formData.date}T${formData.endTime}:00`;
 
-    const newEvent = {
-      id: `local_event_${Date.now()}`,
-      title: formData.title,
-      start: startDateTime,
-      end: endDateTime,
-      summary: formData.title,
-      email: formData.email,
-      valor: formData.value,
-      metodo_pagamento: formData.paymentMethod
-    };
+      await agendamentoService.criarAgendamento({
+        titulo: formData.title,
+        inicio: startDateTime,
+        fim: endDateTime,
+        descricao: formData.email ? `Paciente: ${formData.email}` : null,
+        fuso_horario: 'America/Sao_Paulo'
+      });
 
-    setEvents([...events, newEvent]);
-    setIsModalOpen(false);
-    setFormData({
-      title: '',
-      date: '',
-      startTime: '',
-      endTime: '',
-      email: '',
-      value: '',
-      paymentMethod: 'PIX'
-    });
+      setIsModalOpen(false);
+      setFormData({
+        title: '',
+        date: '',
+        startTime: '',
+        endTime: '',
+        email: '',
+        value: '',
+        paymentMethod: 'PIX'
+      });
+
+      // Recarrega os eventos do Google para mostrar o novo
+      await fetchGoogleEvents();
+    } catch (err) {
+      // Verifica se é conflito de horário (409)
+      if (err.message.includes('Já existe') || err.message.includes('409') || err.message.includes('compromisso')) {
+        setFormError('Já existe um compromisso neste horário. Escolha outro horário.');
+      } else {
+        setFormError('Erro ao criar evento: ' + err.message);
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
+  // Deletar evento do Google Calendar
+  const handleDeleteEvent = async () => {
+    if (!selectedEvent) return;
+    setIsDeletingEvent(true);
+    try {
+      await agendamentoService.deletarEvento(selectedEvent.id);
+      setSelectedEvent(null);
+      await fetchGoogleEvents();
+    } catch (err) {
+      alert('Erro ao remover evento: ' + err.message);
+    } finally {
+      setIsDeletingEvent(false);
+    }
+  };
+
+  // Task 1: Ao montar o componente, checar status do Google
   useEffect(() => {
-    const timer = setTimeout(() => setIsLoading(false), 1200);
-    return () => clearTimeout(timer);
+    const initialize = async () => {
+      try {
+        // Verifica se voltou do fluxo OAuth do Google
+        const params = new URLSearchParams(window.location.search);
+        const googleResult = params.get('google');
+        if (googleResult) {
+          // Limpa o parâmetro da URL sem recarregar a página
+          window.history.replaceState({}, '', window.location.pathname);
+          if (googleResult === 'success') {
+            setGoogleConnected(true);
+            await fetchGoogleEvents();
+            setIsLoading(false);
+            return;
+          }
+        }
+
+        const status = await agendamentoService.checkGoogleStatus();
+        setGoogleConnected(status.google_connected);
+        
+        // Se Google está conectado, busca os eventos reais
+        if (status.google_connected) {
+          await fetchGoogleEvents();
+        }
+      } catch (err) {
+        console.error('Erro ao verificar status do Google:', err);
+        setGoogleConnected(false);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    initialize();
   }, []);
+
+  // Task 1: Conectar ao Google Calendar
+  const handleGoogleConnect = async () => {
+    setIsConnecting(true);
+    try {
+      const data = await agendamentoService.getGoogleLoginUrl();
+      // Redireciona o navegador para o Google OAuth
+      window.location.href = data.url;
+    } catch (err) {
+      alert('Erro ao conectar com o Google: ' + err.message);
+      setIsConnecting(false);
+    }
+  };
+
+  // Task 6: Desconectar do Google Calendar
+  const handleGoogleDisconnect = async () => {
+    if (!confirm('Deseja realmente desconectar o Google Calendar? Você não poderá criar eventos até reconectar.')) return;
+    setIsDisconnecting(true);
+    try {
+      await agendamentoService.disconnectGoogle();
+      setGoogleConnected(false);
+    } catch (err) {
+      alert('Erro ao desconectar: ' + err.message);
+    } finally {
+      setIsDisconnecting(false);
+    }
+  };
 
   if (isLoading) {
     return (
-      <div className="max-w-7xl mx-auto space-y-6 flex flex-col h-full animate-[fade-in_0.5s_ease-out]">
-         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-end mb-4 gap-4 w-full">
-           <div className="space-y-3">
-             <Skeleton className="h-10 w-48 bg-sage-200/60 rounded-lg" />
-             <Skeleton className="h-5 w-80 bg-sage-200/40 rounded-md" />
-           </div>
-           <div className="flex gap-3">
-             <Skeleton className="h-10 w-56 rounded-full bg-sage-200/40" />
-             <Skeleton className="h-10 w-36 rounded-full bg-sage-200/60" />
-           </div>
-         </div>
-         <Skeleton className="flex-1 min-h-[600px] w-full rounded-3xl bg-white border border-sage-100/50 shadow-sm" />
+      <div className="flex flex-col items-center justify-center flex-1 min-h-[600px] gap-4 animate-[fade-in_0.4s_ease-out]">
+        {/* Logo girando como estrela */}
+        <div style={{ animation: 'logo-spin 1.6s ease-in-out infinite' }} className="text-sage-500 drop-shadow-sm">
+          <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" width="72" height="72">
+            <path d="M24 4C22 18 6 22 4 24C6 26 22 30 24 44C26 30 42 26 44 24C42 22 26 18 24 4Z" fill="currentColor" opacity="0.85"/>
+            <circle cx="24" cy="24" fill="currentColor" opacity="0.35" r="6"/>
+          </svg>
+        </div>
+        <p className="text-sage-500 text-sm font-medium tracking-wide">Carregando sua agenda...</p>
+        <style>{`
+          @keyframes logo-spin {
+            0%   { transform: rotate(0deg) scale(1); }
+            25%  { transform: rotate(90deg) scale(1.08); }
+            50%  { transform: rotate(180deg) scale(1); }
+            75%  { transform: rotate(270deg) scale(1.08); }
+            100% { transform: rotate(360deg) scale(1); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -121,15 +230,56 @@ export function DashboardCalendar() {
           <h2 className="font-serif text-3xl font-medium mb-2">Agenda</h2>
           <p className="text-sage-600">Seus compromissos sincronizados e prontos para o fluxo do dia.</p>
         </div>
-        <div className="flex flex-wrap gap-3">
-           <button className="bg-white border border-sage-200 text-deep-moss rounded-full px-6 py-2.5 text-sm font-semibold hover:bg-sage-50 transition-all shadow-sm flex items-center gap-2">
-              <span className="material-symbols-outlined text-lg">sync</span> Conectar Google Calendar
-           </button>
-           <button 
-              onClick={() => setIsModalOpen(true)}
-              className="bg-sage-600 text-white rounded-full px-6 py-2.5 text-sm font-semibold hover:bg-sage-700 transition-all shadow-md flex items-center gap-2">
-              <Plus size={18} /> Novo Evento
-           </button>
+        <div className="flex flex-wrap gap-3 items-center">
+
+           {/* Task 1 + 6: Botão dinâmico de Google */}
+           {googleConnected ? (
+             <>
+               {/* Badge "Google Conectado" */}
+               <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full px-5 py-2.5 text-sm font-semibold flex items-center gap-2 shadow-sm">
+                 <Check size={16} strokeWidth={3} /> Google Conectado
+               </div>
+               {/* Botão Desconectar */}
+               <button
+                 onClick={handleGoogleDisconnect}
+                 disabled={isDisconnecting}
+                 className="bg-white border border-red-200 text-red-500 rounded-full px-5 py-2.5 text-sm font-semibold hover:bg-red-50 hover:border-red-300 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
+               >
+                 <Unlink size={16} /> {isDisconnecting ? 'Desconectando...' : 'Desconectar'}
+               </button>
+             </>
+           ) : (
+             <button
+               onClick={handleGoogleConnect}
+               disabled={isConnecting}
+               className="bg-white border border-sage-200 text-deep-moss rounded-full px-6 py-2.5 text-sm font-semibold hover:bg-sage-50 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
+             >
+               <span className="material-symbols-outlined text-lg">sync</span>
+               {isConnecting ? 'Conectando...' : 'Conectar Google Calendar'}
+             </button>
+           )}
+
+           {/* Task 2: Bloquear Novo Evento se Google não conectado */}
+           <div className="relative group">
+             <button 
+               onClick={() => { setIsModalOpen(true); setFormError(''); }}
+               disabled={!googleConnected}
+               className={`rounded-full px-6 py-2.5 text-sm font-semibold transition-all shadow-md flex items-center gap-2 ${
+                 googleConnected 
+                   ? 'bg-sage-600 text-white hover:bg-sage-700 cursor-pointer' 
+                   : 'bg-sage-300 text-white cursor-not-allowed opacity-60'
+               }`}>
+               <Plus size={18} /> Novo Evento
+             </button>
+             {/* Tooltip quando desabilitado */}
+             {!googleConnected && (
+               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-deep-moss text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
+                 Conecte o Google Calendar primeiro
+                 <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-deep-moss"></div>
+               </div>
+             )}
+           </div>
+
         </div>
       </div>
 
@@ -159,8 +309,39 @@ export function DashboardCalendar() {
              week: "Semana",
              day: "Dia"
           }}
+          onSelectEvent={(event) => setSelectedEvent(event)}
         />
       </div>
+
+      {/* Popup de detalhes do evento selecionado */}
+      {selectedEvent && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 animate-[fade-in_0.15s_ease-out]" onClick={() => setSelectedEvent(null)}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl relative" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 text-sage-400 hover:text-sage-700 transition-colors">
+              <X size={20} />
+            </button>
+            <div className="mb-4">
+              <div className="bg-sage-100 rounded-xl p-3 mb-3">
+                <h3 className="font-serif text-xl font-semibold text-deep-moss">{selectedEvent.title}</h3>
+              </div>
+              <p className="text-sm text-sage-600">
+                <span className="font-semibold">Início:</span> {selectedEvent.start.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+              </p>
+              <p className="text-sm text-sage-600">
+                <span className="font-semibold">Fim:</span> {selectedEvent.end.toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+              </p>
+            </div>
+            <button
+              onClick={handleDeleteEvent}
+              disabled={isDeletingEvent}
+              className="w-full flex items-center justify-center gap-2 bg-red-50 border border-red-200 text-red-600 hover:bg-red-100 transition-colors rounded-xl py-2.5 font-semibold text-sm disabled:opacity-50"
+            >
+              <Trash2 size={16} />
+              {isDeletingEvent ? 'Removendo...' : 'Remover da Agenda'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Modal Novo Evento */}
       {isModalOpen && (
@@ -218,12 +399,19 @@ export function DashboardCalendar() {
                 </div>
               </div>
 
-              <div className="pt-4 flex justify-end gap-3">
+              {/* Mensagem de erro de conflito */}
+              {formError && (
+                <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 font-medium">
+                  {formError}
+                </div>
+              )}
+
+              <div className="pt-2 flex justify-end gap-3">
                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-5 py-2.5 text-sage-600 font-semibold hover:bg-sage-50 rounded-full transition-colors">
                   Cancelar
                 </button>
-                <button type="submit" className="bg-sage-600 text-white px-5 py-2.5 rounded-full font-semibold hover:bg-sage-700 transition-colors shadow-sm">
-                  Salvar Evento
+                <button disabled={isSubmitting} type="submit" className="bg-sage-600 text-white px-5 py-2.5 rounded-full font-semibold hover:bg-sage-700 transition-colors shadow-sm disabled:opacity-50">
+                  {isSubmitting ? 'Salvando...' : 'Salvar Evento'}
                 </button>
               </div>
             </form>

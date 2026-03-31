@@ -72,3 +72,5 @@ class PsicologoLogin(BaseModel):
 class PsicologoLoginResponse(BaseModel):
     mensagem: str = Field(description="Mensagem indicando o resultado do login")
     psicologo: PsicologoResponse = Field(description="Dados do psicólogo autenticado")
+    access_token: str = Field(description="Token de autenticação JWT", default="")
+    token_type: str = Field(description="Tipo de token retornado", default="bearer")

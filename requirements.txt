@@ -18,7 +18,7 @@ email-validator==2.3.0
 faker==40.11.0
 fastapi==0.135.1
 gitdb==4.0.12
-gitpython==3.1.46
+GitPython==3.1.46
 google-api-core==2.30.0
 google-api-python-client==2.193.0
 google-auth==2.49.1
@@ -50,13 +50,14 @@ pyasn1==0.6.3
 pyasn1-modules==0.4.2
 pycparser==3.0
 pydantic==2.12.5
-pydantic-core==2.41.5
+pydantic_core==2.41.5
 pydeck==0.9.1
-pyparsing==3.3.2
+PyJWT==2.12.1
 python-dateutil==2.9.0.post0
 python-dotenv==1.2.1
+pyparsing==3.2.3
 pytz==2026.1.post1
-pyyaml==6.0.3
+PyYAML==6.0.3
 referencing==0.37.0
 requests==2.32.5
 requests-oauthlib==2.0.0

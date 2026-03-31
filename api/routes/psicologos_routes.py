@@ -5,6 +5,7 @@ from managers.psicologo import PsicologoManager
 from data.database import connect_db
 from typing import Dict
 import logging
+from utils.auth import create_access_token
 
 logging.basicConfig(
     level=logging.INFO,
@@ -63,9 +64,14 @@ def login_psicologo(
             detail="E-mail ou senha incorretos."
         )
     logger.info("Login realizado com sucesso")
+    
+    access_token = create_access_token(data={"sub": str(psicologo_auth.id)})
+    
     return PsicologoLoginResponse(
         mensagem="Login realizado com sucesso",
-        psicologo=psicologo_auth
+        psicologo=psicologo_auth,
+        access_token=access_token,
+        token_type="bearer"
     )
 
 

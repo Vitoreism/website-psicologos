@@ -22,8 +22,11 @@ class GoogleCalendarService:
             redirect_uri=self.redirect_uri
         )
 
-    def get_auth_url(self):
-        auth_url, _ = self.flow.authorization_url(prompt='consent', access_type='offline')
+    def get_auth_url(self, state: str = None):
+        kwargs = {'prompt': 'consent', 'access_type': 'offline'}
+        if state:
+            kwargs['state'] = state
+        auth_url, _ = self.flow.authorization_url(**kwargs)
         logger.info(f'Generated auth URL: {auth_url}')
         return auth_url
 
@@ -109,6 +112,22 @@ class GoogleCalendarService:
 
         logger.info(f"Evento criado com sucesso! ID: {evento_criado.get('id')}")
         return evento_criado
+
+    def deletar_evento(self, refresh_token: str, event_id: str) -> None:
+        client_config = self.flow.client_config
+
+        credentials = Credentials(
+            token=None,
+            refresh_token=refresh_token,
+            token_uri=client_config.get("token_uri", "https://oauth2.googleapis.com/token"),
+            client_id=client_config["client_id"],
+            client_secret=client_config["client_secret"],
+            scopes=self.scopes
+        )
+
+        service = build('calendar', 'v3', credentials=credentials)
+        service.events().delete(calendarId='primary', eventId=event_id).execute()
+        logger.info(f"Evento {event_id} deletado do Google Calendar com sucesso.")
 
 
 if __name__ == "__main__":
