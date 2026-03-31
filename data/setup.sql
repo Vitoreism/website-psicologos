@@ -10,9 +10,10 @@ CREATE TABLE IF NOT EXISTS psicologos (
 
 CREATE TABLE IF NOT EXISTS pacientes (
     id_paciente SERIAL PRIMARY KEY, 
+    id_psicologo INTEGER NOT NULL REFERENCES psicologos(id) ON DELETE CASCADE,
     primeiro_nome VARCHAR(50) NOT NULL,
     ultimo_nome VARCHAR(50) NOT NULL,
-    email VARCHAR(100) UNIQUE NOT NULL,
+    email VARCHAR(100) NOT NULL,
     is_ativo BOOLEAN DEFAULT TRUE
 );
 
@@ -22,7 +23,6 @@ CREATE TABLE IF NOT EXISTS pagamentos (
     id_paciente INTEGER REFERENCES pacientes(id_paciente) ON DELETE CASCADE,
     valor DECIMAL(10, 2) NOT NULL,
     metodo_pagamento VARCHAR(30) NOT NULL,
-    status_pagamento VARCHAR(20) DEFAULT 'pendente',
     data_pagamento TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
 
