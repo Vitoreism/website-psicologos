@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS pacientes (
     primeiro_nome VARCHAR(50) NOT NULL,
     ultimo_nome VARCHAR(50) NOT NULL,
     email VARCHAR(100) NOT NULL,
-    is_ativo BOOLEAN DEFAULT TRUE
+    is_ativo BOOLEAN DEFAULT TRUE,
+    UNIQUE (id_psicologo, email)
 );
 
 CREATE TABLE IF NOT EXISTS pagamentos (
