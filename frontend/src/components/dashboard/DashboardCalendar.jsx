@@ -31,11 +31,26 @@ const initialFormData = {
   patientId: '',
   email: '',
   value: '',
-  paymentMethod: 'PIX'
+  paymentMethod: 'pix'
 };
 
 const formatPatientDescription = (patient) =>
   `Paciente vinculado: ${patient.primeiro_nome} ${patient.ultimo_nome} | E-mail: ${patient.email}`;
+
+const parseCurrencyValue = (value) => {
+  const rawValue = String(value ?? '').trim();
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const normalizedValue = rawValue.includes(',') && rawValue.includes('.')
+    ? rawValue.replace(/\./g, '').replace(',', '.')
+    : rawValue.replace(',', '.');
+
+  const parsedValue = Number(normalizedValue);
+  return Number.isFinite(parsedValue) ? parsedValue : null;
+};
 
 export function DashboardCalendar() {
   const navigate = useNavigate();
@@ -135,6 +150,7 @@ export function DashboardCalendar() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     const now = new Date();
+    const parsedValue = parseCurrencyValue(formData.value);
     const startDateTimeStr = `${formData.date}T${formData.startTime}:00`;
     const endDateTimeStr = `${formData.date}T${formData.endTime}:00`;
     const startDate = new Date(startDateTimeStr);
@@ -150,6 +166,11 @@ export function DashboardCalendar() {
       return;
     }
 
+    if (!parsedValue || parsedValue <= 0) {
+      setFormError('Informe um valor válido para a consulta.');
+      return;
+    }
+
     if (endDate <= startDate) {
       setFormError('O horário de término deve ser após o horário de início.');
       return;
@@ -160,9 +181,13 @@ export function DashboardCalendar() {
 
     try {
       await agendamentoService.criarAgendamento({
+        id_paciente: Number(formData.patientId),
         titulo: formData.title,
+        dia: formData.date,
         inicio: startDateTimeStr,
         fim: endDateTimeStr,
+        valor: parsedValue.toFixed(2),
+        metodo_pagamento: formData.paymentMethod,
         descricao: formatPatientDescription(selectedPatient),
         fuso_horario: 'America/Sao_Paulo'
       });
@@ -483,16 +508,17 @@ export function DashboardCalendar() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-sage-700 mb-1">Valor (R$)</label>
-                  <input type="number" step="0.01" name="value" value={formData.value} onChange={handleInputChange} className="w-full border border-sage-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sage-400" placeholder="150.00" />
+                  <input required type="text" inputMode="decimal" name="value" value={formData.value} onChange={handleInputChange} className="w-full border border-sage-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sage-400" placeholder="150,00" />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold text-sage-700 mb-1">Método de Pgto</label>
                   <select name="paymentMethod" value={formData.paymentMethod} onChange={handleInputChange} className="w-full border border-sage-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white">
-                    <option value="PIX">PIX</option>
-                    <option value="Cartão de Crédito">Cartão de Crédito</option>
-                    <option value="Transferência">Transferência</option>
-                    <option value="Dinheiro">Dinheiro</option>
-                    <option value="Plano de Saúde">Plano de Saúde</option>
+                    <option value="pix">PIX</option>
+                    <option value="cartao_credito">Cartão de Crédito</option>
+                    <option value="cartao_debito">Cartão de Débito</option>
+                    <option value="transferencia">Transferência</option>
+                    <option value="dinheiro">Dinheiro</option>
+                    <option value="plano_de_saude">Plano de Saúde</option>
                   </select>
                 </div>
               </div>
