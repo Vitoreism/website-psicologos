@@ -2,10 +2,15 @@ from fastapi import APIRouter, HTTPException, status, Depends, Request
 from fastapi.responses import RedirectResponse
 from services.google_calendar_service import GoogleCalendarService
 from managers.psicologo import PsicologoManager
+from managers.consulta import ConsultaManager
 from data.database import connect_db
 import logging
 from schemas.calendar_schemas import CreateEventRequest
+from schemas.consulta_schemas import ConsultaCreate
 from utils.auth import get_current_psicologo
+from pydantic import Field
+from decimal import Decimal
+from datetime import date as date_type
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +19,25 @@ router = APIRouter()
 def get_psico_manager():
     engine = connect_db()
     return PsicologoManager(engine=engine, tabela="psicologos")
+
+def get_consulta_manager():
+    engine = connect_db()
+    return ConsultaManager(engine=engine)
+
+
+class AgendarConsultaRequest(CreateEventRequest):
+    """
+    Extensão do CreateEventRequest com dados necessários para
+    persistir a consulta e o pagamento no banco de dados.
+    """
+    id_paciente: int = Field(description="ID do paciente vinculado ao psicólogo")
+    dia: date_type = Field(description="Data da consulta (YYYY-MM-DD)")
+    valor: Decimal = Field(gt=0, description="Valor cobrado pela consulta")
+    metodo_pagamento: str = Field(
+        min_length=2,
+        max_length=30,
+        description="Método: pix, cartao_credito, cartao_debito, dinheiro, transferencia"
+    )
 
 gc_service_singleton = GoogleCalendarService(
     client_secrets_file="credentials.json", 
@@ -83,20 +107,24 @@ def google_callback(
         return RedirectResponse(url="http://localhost:5173/dashboard?google=error")
 
 
-@router.post("/criar-agendamento")
+@router.post("/criar-agendamento", summary="Agendar consulta (Google Calendar + banco de dados)")
 def criar_agendamento(
-    request: CreateEventRequest, 
-    service: GoogleCalendarService = Depends(get_gc_service), 
-    manager: PsicologoManager = Depends(get_psico_manager),
+    request: AgendarConsultaRequest,
+    service: GoogleCalendarService = Depends(get_gc_service),
+    psico_manager: PsicologoManager = Depends(get_psico_manager),
+    consulta_manager: ConsultaManager = Depends(get_consulta_manager),
     psicologo_id: int = Depends(get_current_psicologo)
 ):
+    """
+    Agenda uma consulta no Google Calendar e persiste a consulta + pagamento no banco.
+    O pagamento é considerado realizado no ato do agendamento.
+    """
     try:
-
-        refresh_token = manager.get_google_refresh_token(psicologo_id=psicologo_id)
+        refresh_token = psico_manager.get_google_refresh_token(psicologo_id=psicologo_id)
 
         if not refresh_token:
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED, 
+                status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Psicólogo não possui agenda Google vinculada. Use /google-login primeiro."
             )
 
@@ -108,12 +136,13 @@ def criar_agendamento(
             fuso_horario=request.fuso_horario
         )
         if eventos_existentes:
-            logger.warning(f"Conflito de horário detectado para o psicologo {psicologo_id}")
+            logger.warning(f"Conflito de horário detectado para o psicólogo {psicologo_id}")
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Já existe um compromisso marcado neste horário."
             )
 
+        # Cria o evento no Google Calendar
         evento_criado = service.criar_evento(
             refresh_token=refresh_token,
             titulo=request.titulo,
@@ -123,20 +152,48 @@ def criar_agendamento(
             fuso_horario=request.fuso_horario
         )
 
+        # Persiste consulta + pagamento no banco de dados (transação atômica)
+        consulta_data = ConsultaCreate(
+            id_paciente=request.id_paciente,
+            dia=request.dia,
+            horario_inicio=request.inicio,
+            horario_fim=request.fim,
+            valor=request.valor,
+            metodo_pagamento=request.metodo_pagamento,
+        )
+
+        consulta_salva = consulta_manager.criar_consulta_com_pagamento(
+            consulta=consulta_data,
+            id_psicologo=psicologo_id
+        )
+
+        if consulta_salva is None:
+            logger.error(f"Evento criado no Google (id={evento_criado.get('id')}) mas falhou ao salvar no banco.")
+            raise HTTPException(
+                status_code=500,
+                detail="Agendamento criado no Google Calendar, mas houve falha ao salvar no banco de dados."
+            )
+
+        logger.info(
+            f"Consulta {consulta_salva.id_consulta} agendada com pagamento "
+            f"{consulta_salva.id_pagamento} para psicólogo {psicologo_id}."
+        )
+
         return {
             "mensagem": "Agendamento realizado com sucesso!",
+            "id_consulta": consulta_salva.id_consulta,
+            "id_pagamento": consulta_salva.id_pagamento,
             "id_google": evento_criado.get("id"),
-            "link": evento_criado.get("htmlLink")
+            "link": evento_criado.get("htmlLink"),
         }
-
 
     except HTTPException as http_e:
         raise http_e
     except Exception as e:
         logger.error(f"Erro inesperado ao criar agendamento: {e}", exc_info=True)
         raise HTTPException(
-            status_code=500, 
-            detail="Erro interno ao processar o agendamento no Google Calendar"
+            status_code=500,
+            detail="Erro interno ao processar o agendamento."
         )
 
 

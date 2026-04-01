@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from api.routes import psicologos_routes, agendamentos_routes, pacientes_routes
+from api.routes import psicologos_routes, agendamentos_routes, pacientes_routes, consultas_routes
 from fastapi import Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -38,6 +38,12 @@ app.include_router(
     pacientes_routes.router,
     prefix="/api/pacientes",
     tags=["Pacientes"]
+)
+
+app.include_router(
+    consultas_routes.router,
+    prefix="/api/consultas",
+    tags=["Consultas e Financeiro"]
 )
 
 @app.exception_handler(RequestValidationError)
