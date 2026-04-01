@@ -10,6 +10,25 @@ function authHeaders(extra = {}) {
   return headers;
 }
 
+function getApiErrorMessage(error, fallbackMessage) {
+  const detail = error?.detail;
+
+  if (Array.isArray(detail)) {
+    return detail
+      .map((item) => {
+        const field = Array.isArray(item?.loc) ? item.loc[item.loc.length - 1] : null;
+        return field ? `${field}: ${item.msg}` : item.msg;
+      })
+      .join(' | ');
+  }
+
+  if (typeof detail === 'string' && detail.trim()) {
+    return detail;
+  }
+
+  return fallbackMessage;
+}
+
 export const authService = {
   async register(psicologoData) {
     const response = await fetch(`${API_URL}/psicologos/`, {
@@ -128,6 +147,85 @@ export const pacienteService = {
     }
 }
 
+export const consultaService = {
+    async listar({ id_paciente, data_inicio, data_fim } = {}) {
+        const params = new URLSearchParams();
+        if (id_paciente) params.set('id_paciente', id_paciente);
+        if (data_inicio) params.set('data_inicio', data_inicio);
+        if (data_fim) params.set('data_fim', data_fim);
+
+        const response = await fetch(`${API_URL}/consultas/?${params.toString()}`, {
+            headers: authHeaders()
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Erro ao listar consultas');
+        }
+        return response.json();
+    },
+
+    async buscarPorId(id) {
+        const response = await fetch(`${API_URL}/consultas/${id}`, {
+            headers: authHeaders()
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Erro ao buscar consulta');
+        }
+        return response.json();
+    }
+}
+
+export const financeiroService = {
+    async getResumo(inicio, fim) {
+        const params = new URLSearchParams({ inicio, fim });
+        const response = await fetch(`${API_URL}/consultas/financeiro/resumo?${params}`, {
+            headers: authHeaders()
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Erro ao buscar resumo financeiro');
+        }
+        return response.json();
+    },
+
+    async getPorDia(inicio, fim) {
+        const params = new URLSearchParams({ inicio, fim });
+        const response = await fetch(`${API_URL}/consultas/financeiro/por-dia?${params}`, {
+            headers: authHeaders()
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Erro ao buscar faturamento diário');
+        }
+        return response.json();
+    },
+
+    async getPorMes(ano) {
+        const params = new URLSearchParams({ ano });
+        const response = await fetch(`${API_URL}/consultas/financeiro/por-mes?${params}`, {
+            headers: authHeaders()
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Erro ao buscar faturamento mensal');
+        }
+        return response.json();
+    },
+
+    async getPorMetodo(inicio, fim) {
+        const params = new URLSearchParams({ inicio, fim });
+        const response = await fetch(`${API_URL}/consultas/financeiro/por-metodo?${params}`, {
+            headers: authHeaders()
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Erro ao buscar faturamento por método');
+        }
+        return response.json();
+    }
+}
+
 export const agendamentoService = {
     // Busca a URL de autorização do Google (requer token JWT)
     async getGoogleLoginUrl() {
@@ -150,7 +248,7 @@ export const agendamentoService = {
         });
         if (!response.ok) {
             const error = await response.json();
-            throw new Error(error.detail || 'Erro ao criar agendamento');
+            throw new Error(getApiErrorMessage(error, 'Erro ao criar agendamento'));
         }
         return response.json();
     },

@@ -2,7 +2,7 @@ import { Calendar, Users, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Skeleton } from '../ui/Skeleton';
-import { authService, psicologoService, agendamentoService } from '../../services/api';
+import { authService, pacienteService, agendamentoService } from '../../services/api';
 
 const hasLinkedPatient = (description = '') =>
   description.startsWith('Paciente vinculado:') || description.startsWith('Paciente:');
@@ -31,9 +31,9 @@ export function DashboardOverview() {
         setUserName(user.primeiro_nome);
       }
 
-      const dadosRelatorio = await psicologoService.getDashboardMetrics();
+      const pacientes = await pacienteService.getAll();
       setMetrics({
-        total_pacientes: dadosRelatorio.total_pacientes || 0
+        total_pacientes: pacientes.length
       });
 
       const statusGoogle = await agendamentoService.checkGoogleStatus();
