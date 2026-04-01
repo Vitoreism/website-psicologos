@@ -1,7 +1,7 @@
 import { Save } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { Skeleton } from '../ui/Skeleton';
-import { authService, psicologoService } from '../../services/api';
+import { authService, psicologoService, agendamentoService } from '../../services/api';
 
 export function DashboardProfile() {
   const [isLoading, setIsLoading] = useState(true);
@@ -53,12 +53,27 @@ export function DashboardProfile() {
     setErrorMsg('');
     setIsSaving(true);
     try {
+        const emailChanged = profile.email !== originalProfile.email;
+
         await psicologoService.updateProfile(profile.crp, {
             primeiro_nome: profile.primeiro_nome,
             ultimo_nome: profile.ultimo_nome,
             email: profile.email
         });
-        setSuccessMsg('Perfil atualizado com sucesso!');
+
+        // Task: Se trocar o email, desconectar do google agenda
+        if (emailChanged) {
+            try {
+                await agendamentoService.disconnectGoogle();
+                setSuccessMsg('Perfil atualizado! Como você alterou seu e-mail, sua agenda do Google foi desconectada por segurança. Por favor, conecte-a novamente.');
+            } catch (err) {
+                console.error("Erro ao desconectar Google após troca de e-mail:", err);
+                setSuccessMsg('Perfil atualizado com sucesso (porém houve um erro ao desconectar sua agenda antiga).');
+            }
+        } else {
+            setSuccessMsg('Perfil atualizado com sucesso!');
+        }
+
         setIsEditing(false);
         setOriginalProfile(profile);
         

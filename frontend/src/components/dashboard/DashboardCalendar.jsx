@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
+import { useLocation, useNavigate } from 'react-router-dom';
 import format from 'date-fns/format';
 import parse from 'date-fns/parse';
 import startOfWeek from 'date-fns/startOfWeek';
@@ -8,7 +9,7 @@ import ptBR from 'date-fns/locale/pt-BR';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import { Plus, X, Check, Unlink, Trash2 } from 'lucide-react';
 import { Skeleton } from '../ui/Skeleton';
-import { agendamentoService } from '../../services/api';
+import { agendamentoService, pacienteService } from '../../services/api';
 
 const locales = {
   'pt-BR': ptBR,
@@ -22,48 +23,103 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+const initialFormData = {
+  title: '',
+  date: '',
+  startTime: '',
+  endTime: '',
+  patientId: '',
+  email: '',
+  value: '',
+  paymentMethod: 'PIX'
+};
+
+const formatPatientDescription = (patient) =>
+  `Paciente vinculado: ${patient.primeiro_nome} ${patient.ultimo_nome} | E-mail: ${patient.email}`;
+
 export function DashboardCalendar() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [googleConnected, setGoogleConnected] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isDisconnecting, setIsDisconnecting] = useState(false);
 
   const [events, setEvents] = useState([]);
+  const [patients, setPatients] = useState([]);
+  const [isPatientsLoading, setIsPatientsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formError, setFormError] = useState(''); // erro do formulário de agendamento
-  const [selectedEvent, setSelectedEvent] = useState(null); // evento clicado no calendário
+  const [formError, setFormError] = useState('');
+  const [selectedEvent, setSelectedEvent] = useState(null);
   const [isDeletingEvent, setIsDeletingEvent] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [formData, setFormData] = useState({
-    title: '',
-    date: '',
-    startTime: '',
-    endTime: '',
-    email: '',
-    value: '',
-    paymentMethod: 'PIX'
-  });
+  const [formData, setFormData] = useState(initialFormData);
+  const selectedPatient = patients.find((patient) => String(patient.id) === formData.patientId);
+
+  const fetchPatients = async () => {
+    try {
+      setIsPatientsLoading(true);
+      const data = await pacienteService.getAll();
+      setPatients(data);
+    } catch (err) {
+      console.error('Erro ao buscar pacientes:', err);
+    } finally {
+      setIsPatientsLoading(false);
+    }
+  };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (formError) setFormError(''); // limpa erro ao editar
+
+    if (name === 'patientId') {
+      const patient = patients.find((item) => String(item.id) === value);
+      setFormData((prev) => ({
+        ...prev,
+        patientId: value,
+        email: patient?.email ?? '',
+        title: prev.title || (patient ? `Consulta com ${patient.primeiro_nome}` : prev.title),
+      }));
+
+      if (formError) setFormError('');
+      return;
+    }
+
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    if (formError) setFormError('');
   };
 
-  // Busca eventos do Google Calendar para o mês atual
+  const handleOpenModal = async () => {
+    setFormError('');
+    setIsModalOpen(true);
+    await fetchPatients();
+  };
+
+  const handleGoToPatients = () => {
+    navigate('/dashboard/pacientes', {
+      state: {
+        openNewPatient: true,
+        returnTo: '/dashboard/agenda',
+        draftEvent: formData,
+        prefillPatient: {
+          email: formData.email,
+        },
+      },
+    });
+  };
+
   const fetchGoogleEvents = async () => {
     try {
       const now = new Date();
       const inicio = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const fim = new Date(now.getFullYear(), now.getMonth() + 2, 0);
-      
+
       const data = await agendamentoService.listarEventos(
         inicio.toISOString().slice(0, 19),
         fim.toISOString().slice(0, 19)
       );
 
-      const eventosFormatados = data.eventos.map(ev => ({
+      const eventosFormatados = data.eventos.map((ev) => ({
         id: ev.id,
         title: ev.title,
         start: new Date(ev.start),
@@ -76,42 +132,45 @@ export function DashboardCalendar() {
     }
   };
 
-  // Cria evento no Google Calendar via API
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.title || !formData.date || !formData.startTime || !formData.endTime) {
-      alert('Preencha os campos obrigatórios (Título, Data, Horário Início, Horário Fim).');
+    const now = new Date();
+    const startDateTimeStr = `${formData.date}T${formData.startTime}:00`;
+    const endDateTimeStr = `${formData.date}T${formData.endTime}:00`;
+    const startDate = new Date(startDateTimeStr);
+    const endDate = new Date(endDateTimeStr);
+
+    if (startDate < now) {
+      setFormError('Não é possível criar consultas em datas ou horários que já passaram.');
       return;
     }
-    
-    setIsSubmitting(true);
-    try {
-      const startDateTime = `${formData.date}T${formData.startTime}:00`;
-      const endDateTime = `${formData.date}T${formData.endTime}:00`;
 
+    if (!selectedPatient) {
+      setFormError('Selecione um paciente cadastrado para vincular ao evento.');
+      return;
+    }
+
+    if (endDate <= startDate) {
+      setFormError('O horário de término deve ser após o horário de início.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setFormError('');
+
+    try {
       await agendamentoService.criarAgendamento({
         titulo: formData.title,
-        inicio: startDateTime,
-        fim: endDateTime,
-        descricao: formData.email ? `Paciente: ${formData.email}` : null,
+        inicio: startDateTimeStr,
+        fim: endDateTimeStr,
+        descricao: formatPatientDescription(selectedPatient),
         fuso_horario: 'America/Sao_Paulo'
       });
 
       setIsModalOpen(false);
-      setFormData({
-        title: '',
-        date: '',
-        startTime: '',
-        endTime: '',
-        email: '',
-        value: '',
-        paymentMethod: 'PIX'
-      });
-
-      // Recarrega os eventos do Google para mostrar o novo
+      setFormData(initialFormData);
       await fetchGoogleEvents();
     } catch (err) {
-      // Verifica se é conflito de horário (409)
       if (err.message.includes('Já existe') || err.message.includes('409') || err.message.includes('compromisso')) {
         setFormError('Já existe um compromisso neste horário. Escolha outro horário.');
       } else {
@@ -122,7 +181,6 @@ export function DashboardCalendar() {
     }
   };
 
-  // Deletar evento do Google Calendar
   const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
     setIsDeletingEvent(true);
@@ -137,15 +195,12 @@ export function DashboardCalendar() {
     }
   };
 
-  // Task 1: Ao montar o componente, checar status do Google
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Verifica se voltou do fluxo OAuth do Google
         const params = new URLSearchParams(window.location.search);
         const googleResult = params.get('google');
         if (googleResult) {
-          // Limpa o parâmetro da URL sem recarregar a página
           window.history.replaceState({}, '', window.location.pathname);
           if (googleResult === 'success') {
             setGoogleConnected(true);
@@ -157,8 +212,7 @@ export function DashboardCalendar() {
 
         const status = await agendamentoService.checkGoogleStatus();
         setGoogleConnected(status.google_connected);
-        
-        // Se Google está conectado, busca os eventos reais
+
         if (status.google_connected) {
           await fetchGoogleEvents();
         }
@@ -172,12 +226,34 @@ export function DashboardCalendar() {
     initialize();
   }, []);
 
-  // Task 1: Conectar ao Google Calendar
+  useEffect(() => {
+    const state = location.state;
+
+    if (!state?.selectedPatient && !state?.draftEvent) {
+      return;
+    }
+
+    const patient = state.selectedPatient;
+    const draftEvent = state.draftEvent || {};
+
+    setIsModalOpen(true);
+    setFormError('');
+    setFormData({
+      ...initialFormData,
+      ...draftEvent,
+      patientId: patient ? String(patient.id) : (draftEvent.patientId || ''),
+      email: patient?.email ?? draftEvent.email ?? '',
+      title: draftEvent.title || (patient ? `Consulta com ${patient.primeiro_nome}` : ''),
+    });
+
+    fetchPatients();
+    navigate(location.pathname, { replace: true });
+  }, [location.pathname, location.state, navigate]);
+
   const handleGoogleConnect = async () => {
     setIsConnecting(true);
     try {
       const data = await agendamentoService.getGoogleLoginUrl();
-      // Redireciona o navegador para o Google OAuth
       window.location.href = data.url;
     } catch (err) {
       alert('Erro ao conectar com o Google: ' + err.message);
@@ -185,7 +261,6 @@ export function DashboardCalendar() {
     }
   };
 
-  // Task 6: Desconectar do Google Calendar
   const handleGoogleDisconnect = async () => {
     if (!confirm('Deseja realmente desconectar o Google Calendar? Você não poderá criar eventos até reconectar.')) return;
     setIsDisconnecting(true);
@@ -202,7 +277,6 @@ export function DashboardCalendar() {
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center flex-1 min-h-[600px] gap-4 animate-[fade-in_0.4s_ease-out]">
-        {/* Logo girando como estrela */}
         <div style={{ animation: 'logo-spin 1.6s ease-in-out infinite' }} className="text-sage-500 drop-shadow-sm">
           <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" width="72" height="72">
             <path d="M24 4C22 18 6 22 4 24C6 26 22 30 24 44C26 30 42 26 44 24C42 22 26 18 24 4Z" fill="currentColor" opacity="0.85"/>
@@ -231,55 +305,49 @@ export function DashboardCalendar() {
           <p className="text-sage-600">Seus compromissos sincronizados e prontos para o fluxo do dia.</p>
         </div>
         <div className="flex flex-wrap gap-3 items-center">
+          {googleConnected ? (
+            <>
+              <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full px-5 py-2.5 text-sm font-semibold flex items-center gap-2 shadow-sm">
+                <Check size={16} strokeWidth={3} /> Google Conectado
+              </div>
+              <button
+                onClick={handleGoogleDisconnect}
+                disabled={isDisconnecting}
+                className="bg-white border border-red-200 text-red-500 rounded-full px-5 py-2.5 text-sm font-semibold hover:bg-red-50 hover:border-red-300 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
+              >
+                <Unlink size={16} /> {isDisconnecting ? 'Desconectando...' : 'Desconectar'}
+              </button>
+            </>
+          ) : (
+            <button
+              onClick={handleGoogleConnect}
+              disabled={isConnecting}
+              className="bg-white border border-sage-200 text-deep-moss rounded-full px-6 py-2.5 text-sm font-semibold hover:bg-sage-50 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
+            >
+              <span className="material-symbols-outlined text-lg">sync</span>
+              {isConnecting ? 'Conectando...' : 'Conectar Google Calendar'}
+            </button>
+          )}
 
-           {/* Task 1 + 6: Botão dinâmico de Google */}
-           {googleConnected ? (
-             <>
-               {/* Badge "Google Conectado" */}
-               <div className="bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-full px-5 py-2.5 text-sm font-semibold flex items-center gap-2 shadow-sm">
-                 <Check size={16} strokeWidth={3} /> Google Conectado
-               </div>
-               {/* Botão Desconectar */}
-               <button
-                 onClick={handleGoogleDisconnect}
-                 disabled={isDisconnecting}
-                 className="bg-white border border-red-200 text-red-500 rounded-full px-5 py-2.5 text-sm font-semibold hover:bg-red-50 hover:border-red-300 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
-               >
-                 <Unlink size={16} /> {isDisconnecting ? 'Desconectando...' : 'Desconectar'}
-               </button>
-             </>
-           ) : (
-             <button
-               onClick={handleGoogleConnect}
-               disabled={isConnecting}
-               className="bg-white border border-sage-200 text-deep-moss rounded-full px-6 py-2.5 text-sm font-semibold hover:bg-sage-50 transition-all shadow-sm flex items-center gap-2 disabled:opacity-50"
-             >
-               <span className="material-symbols-outlined text-lg">sync</span>
-               {isConnecting ? 'Conectando...' : 'Conectar Google Calendar'}
-             </button>
-           )}
-
-           {/* Task 2: Bloquear Novo Evento se Google não conectado */}
-           <div className="relative group">
-             <button 
-               onClick={() => { setIsModalOpen(true); setFormError(''); }}
-               disabled={!googleConnected}
-               className={`rounded-full px-6 py-2.5 text-sm font-semibold transition-all shadow-md flex items-center gap-2 ${
-                 googleConnected 
-                   ? 'bg-sage-600 text-white hover:bg-sage-700 cursor-pointer' 
-                   : 'bg-sage-300 text-white cursor-not-allowed opacity-60'
-               }`}>
-               <Plus size={18} /> Novo Evento
-             </button>
-             {/* Tooltip quando desabilitado */}
-             {!googleConnected && (
-               <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-deep-moss text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
-                 Conecte o Google Calendar primeiro
-                 <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-deep-moss"></div>
-               </div>
-             )}
-           </div>
-
+          <div className="relative group">
+            <button
+              onClick={handleOpenModal}
+              disabled={!googleConnected}
+              className={`rounded-full px-6 py-2.5 text-sm font-semibold transition-all shadow-md flex items-center gap-2 ${
+                googleConnected
+                  ? 'bg-sage-600 text-white hover:bg-sage-700 cursor-pointer'
+                  : 'bg-sage-300 text-white cursor-not-allowed opacity-60'
+              }`}
+            >
+              <Plus size={18} /> Novo Evento
+            </button>
+            {!googleConnected && (
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-1.5 bg-deep-moss text-white text-xs rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
+                Conecte o Google Calendar primeiro
+                <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-deep-moss"></div>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -302,21 +370,20 @@ export function DashboardCalendar() {
           culture="pt-BR"
           defaultView="week"
           messages={{
-             next: "Próximo",
-             previous: "Anterior",
-             today: "Hoje",
-             month: "Mês",
-             week: "Semana",
-             day: "Dia"
+            next: 'Próximo',
+            previous: 'Anterior',
+            today: 'Hoje',
+            month: 'Mês',
+            week: 'Semana',
+            day: 'Dia'
           }}
           onSelectEvent={(event) => setSelectedEvent(event)}
         />
       </div>
 
-      {/* Popup de detalhes do evento selecionado */}
       {selectedEvent && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 animate-[fade-in_0.15s_ease-out]" onClick={() => setSelectedEvent(null)}>
-          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl relative" onClick={e => e.stopPropagation()}>
+          <div className="bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl relative" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setSelectedEvent(null)} className="absolute top-4 right-4 text-sage-400 hover:text-sage-700 transition-colors">
               <X size={20} />
             </button>
@@ -343,18 +410,17 @@ export function DashboardCalendar() {
         </div>
       )}
 
-      {/* Modal Novo Evento */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 animate-[fade-in_0.2s_ease-out]">
           <div className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl relative">
-            <button 
+            <button
               onClick={() => setIsModalOpen(false)}
               className="absolute top-4 right-4 text-sage-500 hover:text-sage-800 transition-colors"
             >
               <X size={24} />
             </button>
             <h3 className="font-serif text-2xl font-medium text-deep-moss mb-6">Novo Evento</h3>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-semibold text-sage-700 mb-1">Título da Consulta</label>
@@ -378,8 +444,40 @@ export function DashboardCalendar() {
               </div>
 
               <div>
+                <div className="mb-1 flex items-center justify-between gap-3">
+                  <label className="block text-sm font-semibold text-sage-700">Paciente Vinculado</label>
+                  <button
+                    type="button"
+                    onClick={handleGoToPatients}
+                    className="text-sm font-semibold text-sage-700 hover:text-sage-900 transition-colors"
+                  >
+                    + Novo paciente
+                  </button>
+                </div>
+                <select
+                  name="patientId"
+                  value={formData.patientId}
+                  onChange={handleInputChange}
+                  required
+                  className="w-full border border-sage-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sage-400 bg-white"
+                >
+                  <option value="">
+                    {isPatientsLoading ? 'Carregando pacientes...' : 'Selecione um paciente cadastrado'}
+                  </option>
+                  {patients.map((patient) => (
+                    <option key={patient.id} value={patient.id}>
+                      {patient.primeiro_nome} {patient.ultimo_nome} - {patient.email}
+                    </option>
+                  ))}
+                </select>
+                <p className="mt-2 text-xs text-sage-500">
+                  Escolha um paciente existente ou abra a aba de pacientes para cadastrar um novo e voltar para este evento.
+                </p>
+              </div>
+
+              <div>
                 <label className="block text-sm font-semibold text-sage-700 mb-1">E-mail do Paciente</label>
-                <input type="email" name="email" value={formData.email} onChange={handleInputChange} className="w-full border border-sage-200 rounded-xl px-4 py-2 focus:outline-none focus:ring-2 focus:ring-sage-400" placeholder="email@exemplo.com" />
+                <input type="email" name="email" value={formData.email} readOnly className="w-full border border-sage-200 rounded-xl px-4 py-2 bg-sage-50 text-sage-600 focus:outline-none" placeholder="Selecione um paciente para preencher o e-mail" />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -399,7 +497,6 @@ export function DashboardCalendar() {
                 </div>
               </div>
 
-              {/* Mensagem de erro de conflito */}
               {formError && (
                 <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700 font-medium">
                   {formError}

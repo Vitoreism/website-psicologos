@@ -2,51 +2,94 @@ import { Calendar, Users, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Skeleton } from '../ui/Skeleton';
-import { authService, psicologoService } from '../../services/api';
+import { authService, psicologoService, agendamentoService } from '../../services/api';
+
+const hasLinkedPatient = (description = '') =>
+  description.startsWith('Paciente vinculado:') || description.startsWith('Paciente:');
+
+const sanitizePatientDescription = (description = '') =>
+  description.replace(/\s*\|\s*ID:\s*\d+\s*$/i, '').trim();
 
 export function DashboardOverview() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
   const [metrics, setMetrics] = useState({ total_pacientes: 0 });
   const [userName, setUserName] = useState('');
+  const [upcomingConsultations, setUpcomingConsultations] = useState([]);
+  const [googleConnected, setGoogleConnected] = useState(false);
 
   useEffect(() => {
     loadDashboardData();
   }, []);
 
   const loadDashboardData = async () => {
-      try {
-          setIsLoading(true);
-          
-          const user = authService.getCurrentUser();
-          if (user && user.primeiro_nome) {
-              setUserName(user.primeiro_nome);
-          }
-
-          const dadosRelatorio = await psicologoService.getDashboardMetrics();
-          setMetrics({
-              total_pacientes: dadosRelatorio.total_pacientes || 0
-          });
-      } catch (error) {
-          console.error("Erro ao carregar dashboard", error);
-      } finally {
-          setIsLoading(false);
+    try {
+      setIsLoading(true);
+      
+      const user = authService.getCurrentUser();
+      if (user && user.primeiro_nome) {
+        setUserName(user.primeiro_nome);
       }
+
+      const dadosRelatorio = await psicologoService.getDashboardMetrics();
+      setMetrics({
+        total_pacientes: dadosRelatorio.total_pacientes || 0
+      });
+
+      const statusGoogle = await agendamentoService.checkGoogleStatus();
+      setGoogleConnected(statusGoogle.google_connected);
+
+      if (statusGoogle.google_connected) {
+        const now = new Date();
+        const nextWeek = new Date();
+        nextWeek.setDate(now.getDate() + 7);
+
+        const eventsData = await agendamentoService.listarEventos(
+          now.toISOString().slice(0, 19),
+          nextWeek.toISOString().slice(0, 19)
+        );
+
+        const formatada = eventsData.eventos
+          .filter((ev) => hasLinkedPatient(ev.description || ''))
+          .map((ev) => {
+            const date = new Date(ev.start);
+            return {
+              id: ev.id,
+              time: date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+              dateStr: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+              name: ev.title,
+              type: sanitizePatientDescription(ev.description || 'Consulta agendada')
+            };
+          });
+
+        setUpcomingConsultations(formatada);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar dashboard', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (isLoading) {
     return (
-      <div className="space-y-6 max-w-7xl mx-auto animate-[fade-in_0.5s_ease-out]">
-        <div className="mb-8 space-y-3">
-          <Skeleton className="h-10 w-64 bg-sage-200/60 rounded-lg" />
-          <Skeleton className="h-5 w-96 bg-sage-200/40 rounded-md" />
+      <div className="flex flex-col items-center justify-center flex-1 min-h-[500px] gap-4 animate-[fade-in_0.4s_ease-out]">
+        <div style={{ animation: 'logo-spin 1.6s ease-in-out infinite' }} className="text-sage-500 drop-shadow-sm">
+          <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" width="72" height="72">
+            <path d="M24 4C22 18 6 22 4 24C6 26 22 30 24 44C26 30 42 26 44 24C42 22 26 18 24 4Z" fill="currentColor" opacity="0.85"/>
+            <circle cx="24" cy="24" fill="currentColor" opacity="0.35" r="6"/>
+          </svg>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {[1, 2].map(i => <Skeleton key={i} className="h-[104px] rounded-2xl bg-sage-100/50" />)}
-        </div>
-        <div className="mt-8">
-          <Skeleton className="h-[400px] rounded-2xl bg-white border border-sage-100/50 shadow-sm" />
-        </div>
+        <p className="text-sage-500 text-sm font-medium tracking-wide">Carregando seu resumo...</p>
+        <style>{`
+          @keyframes logo-spin {
+            0%   { transform: rotate(0deg) scale(1); }
+            25%  { transform: rotate(90deg) scale(1.08); }
+            50%  { transform: rotate(180deg) scale(1); }
+            75%  { transform: rotate(270deg) scale(1.08); }
+            100% { transform: rotate(360deg) scale(1); }
+          }
+        `}</style>
       </div>
     );
   }
@@ -58,15 +101,19 @@ export function DashboardOverview() {
         <p className="text-sage-600">Seu resumo de hoje, {new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}.</p>
       </div>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white rounded-2xl p-6 border border-sage-100 shadow-sm flex items-center gap-4">
           <div className="bg-sage-100 p-4 rounded-full text-sage-600">
             <Calendar size={28} />
           </div>
           <div>
-             <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Consultas Hoje</p>
-             <h3 className="text-3xl font-serif text-deep-moss mt-1">4</h3>
+            <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Consultas Hoje</p>
+            <h3 className="text-3xl font-serif text-deep-moss mt-1">
+              {upcomingConsultations.filter((c) => {
+                const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+                return c.dateStr === today;
+              }).length}
+            </h3>
           </div>
         </div>
         <div className="bg-white rounded-2xl p-6 border border-sage-100 shadow-sm flex items-center gap-4">
@@ -74,42 +121,49 @@ export function DashboardOverview() {
             <Users size={28} />
           </div>
           <div>
-             <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Total de Pacientes</p>
-             <h3 className="text-3xl font-serif text-deep-moss mt-1">{metrics.total_pacientes}</h3>
+            <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Total de Pacientes</p>
+            <h3 className="text-3xl font-serif text-deep-moss mt-1">{metrics.total_pacientes}</h3>
           </div>
         </div>
       </div>
 
-      {/* Upcoming Appointments */}
       <div className="bg-white rounded-2xl border border-sage-100 shadow-sm overflow-hidden mt-8">
         <div className="p-6 border-b border-sage-100 flex justify-between items-center">
           <h3 className="font-serif text-xl font-medium text-deep-moss">Próximas Consultas</h3>
-          <button onClick={() => navigate('/dashboard/agenda')} className="text-terracotta-500 hover:text-terracotta-600 text-sm font-semibold flex items-center gap-1">
-            Ver Agenda <ArrowRight size={16} />
-          </button>
+          <div className="flex items-center gap-4">
+            {!googleConnected && (
+              <span className="text-xs font-semibold px-3 py-1 bg-terracotta-50 text-terracotta-500 rounded-full">
+                Google Agenda desconectado
+              </span>
+            )}
+            <button onClick={() => navigate('/dashboard/agenda')} className="text-terracotta-500 hover:text-terracotta-600 text-sm font-semibold flex items-center gap-1">
+              Ver Agenda <ArrowRight size={16} />
+            </button>
+          </div>
         </div>
         <div className="divide-y divide-sage-50">
-          {[
-            { time: '14:00', name: 'Ana Silva', type: 'Primeira Sessão' },
-            { time: '15:30', name: 'Carlos Santos', type: 'Acompanhamento' },
-            { time: '17:00', name: 'Mariana Costa', type: 'Acompanhamento' }
-          ].map((apt, i) => (
-            <div key={i} className="p-6 flex items-center justify-between hover:bg-sage-50/50 transition-colors">
-              <div className="flex items-center gap-6">
-                 <div className="text-xl font-semibold text-deep-moss min-w-16">{apt.time}</div>
-                 <div>
+          {upcomingConsultations.length > 0 ? (
+            upcomingConsultations.map((apt) => (
+              <div key={apt.id} className="p-6 flex items-center justify-between hover:bg-sage-50/50 transition-colors">
+                <div className="flex items-center gap-6">
+                  <div className="flex flex-col items-center min-w-16">
+                    <div className="text-xl font-bold text-deep-moss">{apt.time}</div>
+                    <div className="text-[10px] uppercase font-bold text-sage-400">{apt.dateStr}</div>
+                  </div>
+                  <div>
                     <h4 className="font-semibold text-deep-moss">{apt.name}</h4>
-                    <p className="text-sm text-sage-500">{apt.type}</p>
-                 </div>
+                    <p className="text-sm text-sage-500 line-clamp-1">{apt.type}</p>
+                  </div>
+                </div>
               </div>
-              <button 
-                onClick={() => navigate('/dashboard/pacientes')}
-                className="text-sage-600 bg-sage-100 hover:bg-sage-200 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-               >
-                 Ver Prontuário
-              </button>
+            ))
+          ) : (
+            <div className="p-12 text-center text-sage-500">
+              {googleConnected
+                ? 'Nenhuma consulta com paciente vinculado para os próximos 7 dias.'
+                : 'Conecte sua agenda do Google para visualizar seus compromissos aqui.'}
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
