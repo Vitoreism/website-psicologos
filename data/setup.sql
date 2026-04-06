@@ -15,7 +15,17 @@ CREATE TABLE IF NOT EXISTS pacientes (
     ultimo_nome VARCHAR(50) NOT NULL,
     email VARCHAR(100) NOT NULL,
     is_ativo BOOLEAN DEFAULT TRUE,
+    frequencia VARCHAR(20),
+    data_inicio_agendamento DATE,
     UNIQUE (id_psicologo, email)
+);
+
+CREATE TABLE IF NOT EXISTS horarios_paciente (
+    id_horario SERIAL PRIMARY KEY,
+    id_paciente INTEGER NOT NULL REFERENCES pacientes(id_paciente) ON DELETE CASCADE,
+    dia_semana INTEGER NOT NULL,
+    horario_inicio TIME NOT NULL,
+    horario_fim TIME NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS pagamentos (
@@ -35,5 +45,6 @@ CREATE TABLE IF NOT EXISTS consultas (
     dia DATE NOT NULL,
     horario_inicio TIMESTAMPTZ NOT NULL,
     horario_fim TIMESTAMPTZ NOT NULL,
+    google_event_id VARCHAR(255),
     criado_em TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
 );
