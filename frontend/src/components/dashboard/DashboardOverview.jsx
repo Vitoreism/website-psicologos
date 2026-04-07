@@ -54,6 +54,9 @@ export function DashboardOverview() {
           data_fim: strNextWeek
       });
 
+      // Ordenar para garantir que o mais cedo no tempo apareça primeiro
+      proximas.sort((a, b) => new Date(a.horario_inicio) - new Date(b.horario_inicio));
+
       const formatada = proximas.map((ev) => {
         const date = new Date(ev.horario_inicio);
         return {
