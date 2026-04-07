@@ -42,31 +42,30 @@ export function DashboardOverview() {
       const statusGoogle = await agendamentoService.checkGoogleStatus();
       setGoogleConnected(statusGoogle.google_connected);
 
-      if (statusGoogle.google_connected) {
-        const now = new Date();
-        const nextWeek = new Date();
-        nextWeek.setDate(now.getDate() + 7);
+      const now = new Date();
+      const nextWeek = new Date();
+      nextWeek.setDate(now.getDate() + 7);
+      
+      const strHoje = now.toISOString().split('T')[0];
+      const strNextWeek = nextWeek.toISOString().split('T')[0];
 
-        const eventsData = await agendamentoService.listarEventos(
-          now.toISOString().slice(0, 19),
-          nextWeek.toISOString().slice(0, 19)
-        );
+      const proximas = await consultaService.listar({
+          data_inicio: strHoje,
+          data_fim: strNextWeek
+      });
 
-        const formatada = eventsData.eventos
-          .filter((ev) => hasLinkedPatient(ev.description || ''))
-          .map((ev) => {
-            const date = new Date(ev.start);
-            return {
-              id: ev.id,
-              time: date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-              dateStr: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-              name: ev.title,
-              type: sanitizePatientDescription(ev.description || 'Consulta agendada')
-            };
-          });
+      const formatada = proximas.map((ev) => {
+        const date = new Date(ev.horario_inicio);
+        return {
+          id: ev.id_consulta,
+          time: date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          dateStr: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          name: ev.nome_paciente,
+          type: ev.email_paciente ? `Paciente vinculado | E-mail: ${ev.email_paciente}` : 'Consulta agendada'
+        };
+      });
 
-        setUpcomingConsultations(formatada);
-      }
+      setUpcomingConsultations(formatada);
     } catch (error) {
       console.error('Erro ao carregar dashboard', error);
     } finally {
@@ -159,9 +158,7 @@ export function DashboardOverview() {
             ))
           ) : (
             <div className="p-12 text-center text-sage-500">
-              {googleConnected
-                ? 'Nenhuma consulta com paciente vinculado para os próximos 7 dias.'
-                : 'Conecte sua agenda do Google para visualizar seus compromissos aqui.'}
+              Nenhuma consulta agendada para os próximos 7 dias.
             </div>
           )}
         </div>

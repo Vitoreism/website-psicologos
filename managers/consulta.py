@@ -141,6 +141,7 @@ class ConsultaManager:
                 c.horario_inicio,
                 c.horario_fim,
                 (pac.primeiro_nome || ' ' || pac.ultimo_nome) AS nome_paciente,
+                pac.email AS email_paciente,
                 pag.valor,
                 pag.metodo_pagamento
             FROM {self.tabela_consultas} c
