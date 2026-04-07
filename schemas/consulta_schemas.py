@@ -63,6 +63,7 @@ class ConsultaResumo(BaseModel):
     id_consulta: int
     id_paciente: int
     nome_paciente: Optional[str] = None
+    email_paciente: Optional[str] = None
     dia: date
     horario_inicio: datetime
     horario_fim: datetime

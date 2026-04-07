@@ -141,6 +141,7 @@ class ConsultaManager:
                 c.horario_inicio,
                 c.horario_fim,
                 (pac.primeiro_nome || ' ' || pac.ultimo_nome) AS nome_paciente,
+                pac.email AS email_paciente,
                 pag.valor,
                 pag.metodo_pagamento
             FROM {self.tabela_consultas} c
@@ -230,3 +231,32 @@ class ConsultaManager:
         except Exception as e:
             logger.error(f"Erro ao deletar consulta {id_consulta}: {e}", exc_info=True)
             return False
+
+    
+    def get_quantidade_consultas_hoje(self, id_psicologo: int) -> int:
+        """
+        Retorna apenas a quantidade de consultas do dia atual via um COUNT otimizado.
+        """
+        query = text(f"""
+            SELECT COUNT(c.id_consulta) AS quantidade
+            FROM {self.tabela_consultas} c
+            WHERE c.id_psicologo = :id_psicologo
+              AND c.dia = CURRENT_DATE;
+        """)
+        try:
+            with self.engine.connect() as conn:
+                result = conn.execute(query, {"id_psicologo": id_psicologo})
+                row = result.mappings().first()
+                if row:
+                    return row["quantidade"]
+                return 0
+        except Exception as e:
+            logger.error(f"Erro ao buscar quantidade de consultas hoje: {e}", exc_info=True)
+            return 0
+
+    def get_consultas_hoje(self, id_psicologo: int) -> List[ConsultaResumo]:
+        """
+        Retorna as consultas agendadas para o dia atual.
+        """
+        hoje = date.today()
+        return self.listar_consultas(id_psicologo=id_psicologo, data_inicio=hoje, data_fim=hoje)

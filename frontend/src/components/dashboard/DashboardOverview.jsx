@@ -2,7 +2,7 @@ import { Calendar, Users, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Skeleton } from '../ui/Skeleton';
-import { authService, pacienteService, agendamentoService } from '../../services/api';
+import { authService, pacienteService, agendamentoService, consultaService } from '../../services/api';
 
 const hasLinkedPatient = (description = '') =>
   description.startsWith('Paciente vinculado:') || description.startsWith('Paciente:');
@@ -13,7 +13,7 @@ const sanitizePatientDescription = (description = '') =>
 export function DashboardOverview() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
-  const [metrics, setMetrics] = useState({ total_pacientes: 0 });
+  const [metrics, setMetrics] = useState({ total_pacientes: 0, consultas_hoje: 0 });
   const [userName, setUserName] = useState('');
   const [upcomingConsultations, setUpcomingConsultations] = useState([]);
   const [googleConnected, setGoogleConnected] = useState(false);
@@ -32,38 +32,43 @@ export function DashboardOverview() {
       }
 
       const pacientes = await pacienteService.getAll();
+      const consultasHoje = await consultaService.getQuantidadeHoje();
+
       setMetrics({
-        total_pacientes: pacientes.length
+        total_pacientes: pacientes.length,
+        consultas_hoje: consultasHoje
       });
 
       const statusGoogle = await agendamentoService.checkGoogleStatus();
       setGoogleConnected(statusGoogle.google_connected);
 
-      if (statusGoogle.google_connected) {
-        const now = new Date();
-        const nextWeek = new Date();
-        nextWeek.setDate(now.getDate() + 7);
+      const now = new Date();
+      const nextWeek = new Date();
+      nextWeek.setDate(now.getDate() + 7);
+      
+      const strHoje = now.toISOString().split('T')[0];
+      const strNextWeek = nextWeek.toISOString().split('T')[0];
 
-        const eventsData = await agendamentoService.listarEventos(
-          now.toISOString().slice(0, 19),
-          nextWeek.toISOString().slice(0, 19)
-        );
+      const proximas = await consultaService.listar({
+          data_inicio: strHoje,
+          data_fim: strNextWeek
+      });
 
-        const formatada = eventsData.eventos
-          .filter((ev) => hasLinkedPatient(ev.description || ''))
-          .map((ev) => {
-            const date = new Date(ev.start);
-            return {
-              id: ev.id,
-              time: date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
-              dateStr: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
-              name: ev.title,
-              type: sanitizePatientDescription(ev.description || 'Consulta agendada')
-            };
-          });
+      // Ordenar para garantir que o mais cedo no tempo apareça primeiro
+      proximas.sort((a, b) => new Date(a.horario_inicio) - new Date(b.horario_inicio));
 
-        setUpcomingConsultations(formatada);
-      }
+      const formatada = proximas.map((ev) => {
+        const date = new Date(ev.horario_inicio);
+        return {
+          id: ev.id_consulta,
+          time: date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }),
+          dateStr: date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+          name: ev.nome_paciente,
+          type: ev.email_paciente ? `Paciente vinculado | E-mail: ${ev.email_paciente}` : 'Consulta agendada'
+        };
+      });
+
+      setUpcomingConsultations(formatada);
     } catch (error) {
       console.error('Erro ao carregar dashboard', error);
     } finally {
@@ -109,10 +114,7 @@ export function DashboardOverview() {
           <div>
             <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Consultas Hoje</p>
             <h3 className="text-3xl font-serif text-deep-moss mt-1">
-              {upcomingConsultations.filter((c) => {
-                const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                return c.dateStr === today;
-              }).length}
+              {metrics.consultas_hoje}
             </h3>
           </div>
         </div>
@@ -159,9 +161,7 @@ export function DashboardOverview() {
             ))
           ) : (
             <div className="p-12 text-center text-sage-500">
-              {googleConnected
-                ? 'Nenhuma consulta com paciente vinculado para os próximos 7 dias.'
-                : 'Conecte sua agenda do Google para visualizar seus compromissos aqui.'}
+              Nenhuma consulta agendada para os próximos 7 dias.
             </div>
           )}
         </div>
