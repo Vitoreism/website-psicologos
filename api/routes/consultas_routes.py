@@ -50,6 +50,17 @@ def listar_consultas(
     )
 
 
+@router.get("/hoje/quantidade", response_model=int, summary="Quantidade de consultas hoje")
+def quantidade_consultas_hoje(
+    manager: ConsultaManager = Depends(get_consulta_manager),
+    psicologo_id: int = Depends(get_current_psicologo),
+):
+    """
+    Retorna apenas a quantidade de consultas marcadas para o dia de hoje.
+    """
+    return manager.get_quantidade_consultas_hoje(id_psicologo=psicologo_id)
+
+
 @router.get("/{id_consulta}", response_model=ConsultaResponse, summary="Buscar consulta por ID")
 def buscar_consulta(
     id_consulta: int,
