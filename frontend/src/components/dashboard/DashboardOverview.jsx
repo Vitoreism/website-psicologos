@@ -25,7 +25,7 @@ export function DashboardOverview() {
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
-      
+
       const user = authService.getCurrentUser();
       if (user && user.primeiro_nome) {
         setUserName(user.primeiro_nome);
@@ -45,17 +45,14 @@ export function DashboardOverview() {
       const now = new Date();
       const nextWeek = new Date();
       nextWeek.setDate(now.getDate() + 7);
-      
+
       const strHoje = now.toISOString().split('T')[0];
       const strNextWeek = nextWeek.toISOString().split('T')[0];
 
       const proximas = await consultaService.listar({
-          data_inicio: strHoje,
-          data_fim: strNextWeek
+        data_inicio: strHoje,
+        data_fim: strNextWeek
       });
-
-      // Ordenar para garantir que o mais cedo no tempo apareça primeiro
-      proximas.sort((a, b) => new Date(a.horario_inicio) - new Date(b.horario_inicio));
 
       const formatada = proximas.map((ev) => {
         const date = new Date(ev.horario_inicio);
@@ -81,8 +78,8 @@ export function DashboardOverview() {
       <div className="flex flex-col items-center justify-center flex-1 min-h-[500px] gap-4 animate-[fade-in_0.4s_ease-out]">
         <div style={{ animation: 'logo-spin 1.6s ease-in-out infinite' }} className="text-sage-500 drop-shadow-sm">
           <svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" width="72" height="72">
-            <path d="M24 4C22 18 6 22 4 24C6 26 22 30 24 44C26 30 42 26 44 24C42 22 26 18 24 4Z" fill="currentColor" opacity="0.85"/>
-            <circle cx="24" cy="24" fill="currentColor" opacity="0.35" r="6"/>
+            <path d="M24 4C22 18 6 22 4 24C6 26 22 30 24 44C26 30 42 26 44 24C42 22 26 18 24 4Z" fill="currentColor" opacity="0.85" />
+            <circle cx="24" cy="24" fill="currentColor" opacity="0.35" r="6" />
           </svg>
         </div>
         <p className="text-sage-500 text-sm font-medium tracking-wide">Carregando seu resumo...</p>
