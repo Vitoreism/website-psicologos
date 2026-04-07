@@ -148,7 +148,7 @@ class ConsultaManager:
             LEFT JOIN pacientes pac ON pac.id_paciente = c.id_paciente
             LEFT JOIN {self.tabela_pagamentos} pag ON pag.id_pagamento = c.id_pagamento
             WHERE {where_clause}
-            ORDER BY c.dia DESC, c.horario_inicio DESC;
+            ORDER BY c.dia ASC, c.horario_inicio ASC;
         """)
 
         try:
