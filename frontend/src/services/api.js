@@ -173,6 +173,17 @@ export const consultaService = {
             throw new Error(error.detail || 'Erro ao buscar consulta');
         }
         return response.json();
+    },
+
+    async getQuantidadeHoje() {
+        const response = await fetch(`${API_URL}/consultas/hoje/quantidade`, {
+            headers: authHeaders()
+        });
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || 'Erro ao buscar quantidade de consultas');
+        }
+        return response.json();
     }
 }
 

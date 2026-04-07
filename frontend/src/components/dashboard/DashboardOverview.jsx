@@ -2,7 +2,7 @@ import { Calendar, Users, ArrowRight } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { Skeleton } from '../ui/Skeleton';
-import { authService, pacienteService, agendamentoService } from '../../services/api';
+import { authService, pacienteService, agendamentoService, consultaService } from '../../services/api';
 
 const hasLinkedPatient = (description = '') =>
   description.startsWith('Paciente vinculado:') || description.startsWith('Paciente:');
@@ -13,7 +13,7 @@ const sanitizePatientDescription = (description = '') =>
 export function DashboardOverview() {
   const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(true);
-  const [metrics, setMetrics] = useState({ total_pacientes: 0 });
+  const [metrics, setMetrics] = useState({ total_pacientes: 0, consultas_hoje: 0 });
   const [userName, setUserName] = useState('');
   const [upcomingConsultations, setUpcomingConsultations] = useState([]);
   const [googleConnected, setGoogleConnected] = useState(false);
@@ -32,8 +32,11 @@ export function DashboardOverview() {
       }
 
       const pacientes = await pacienteService.getAll();
+      const consultasHoje = await consultaService.getQuantidadeHoje();
+
       setMetrics({
-        total_pacientes: pacientes.length
+        total_pacientes: pacientes.length,
+        consultas_hoje: consultasHoje
       });
 
       const statusGoogle = await agendamentoService.checkGoogleStatus();
@@ -109,10 +112,7 @@ export function DashboardOverview() {
           <div>
             <p className="text-sage-600 text-sm font-semibold uppercase tracking-wider">Consultas Hoje</p>
             <h3 className="text-3xl font-serif text-deep-moss mt-1">
-              {upcomingConsultations.filter((c) => {
-                const today = new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
-                return c.dateStr === today;
-              }).length}
+              {metrics.consultas_hoje}
             </h3>
           </div>
         </div>
