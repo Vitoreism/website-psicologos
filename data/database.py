@@ -50,13 +50,8 @@ def run_setup_sql(engine: Engine) -> None:
     except Exception as e:
         logger.error(f"Could not execute create table code. Error: {e}")
 
-_engine = None
 
 def connect_db() -> Engine:
-    global _engine
-    if _engine is not None:
-        return _engine
-
     if DATABASE_URL is None:
         logger.error("Database URL is not configured. Check .env file.")
         return None
@@ -68,7 +63,6 @@ def connect_db() -> Engine:
         logger.info("CONECTADO")
 
         run_setup_sql(engine)
-        _engine = engine
         return engine
     except Exception as e:
         logger.warning(f"Error in connecting with the database or it does not exist yet: {e}")
