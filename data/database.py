@@ -20,17 +20,17 @@ logger = logging.getLogger(__name__)
 
 
 DB_NAME = os.getenv("DB_NAME")
-USER = os.getenv("USER")
-PASSWORD = os.getenv("PASSWORD")
-HOST = os.getenv("HOST")
-PORT = os.getenv("PORT")
+DB_USER = os.getenv("DB_USER")
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
+DB_PORT = os.getenv("DB_PORT")
 
 
-if not all([DB_NAME, USER, PASSWORD, HOST, PORT, SETUP_SQL_PATH]):
+if not all([DB_NAME, DB_USER, DB_PASSWORD, DB_HOST, DB_PORT, SETUP_SQL_PATH]):
     logger.error("Could not extract enviroment variables from .env")
     DATABASE_URL = None
 else:
-    DATABASE_URL = F"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB_NAME}"
+    DATABASE_URL = F"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/{DB_NAME}"
 
 def run_setup_sql(engine: Engine) -> None:
     file_path = SETUP_SQL_PATH
@@ -69,7 +69,7 @@ def connect_db() -> Engine:
         
         try:
             logger.info(f"Creating a new database with name {DB_NAME}... ")
-            url = f"postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/postgres"
+            url = f"postgresql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}:{DB_PORT}/postgres"
             temp_engine = create_engine(url, isolation_level="AUTOCOMMIT")
             with temp_engine.connect() as conn:
                 conn.execute(text(f"CREATE DATABASE {DB_NAME}"))
