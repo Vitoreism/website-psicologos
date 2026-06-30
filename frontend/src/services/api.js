@@ -106,13 +106,6 @@ export const psicologoService = {
         return response.json();
     },
 
-    async getDashboardMetrics() {
-        const response = await fetch(`${API_URL}/psicologos/painel/relatorio`, {
-            headers: authHeaders()
-        });
-        if (!response.ok) throw new Error('Erro ao buscar métricas');
-        return response.json();
-    }
 }
 
 export const pacienteService = {
