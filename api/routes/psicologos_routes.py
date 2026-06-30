@@ -75,11 +75,6 @@ def login_psicologo(
     )
 
 
-@router.get("/painel/relatorio")
-def obter_relatorio(manager: PsicologoManager = Depends(get_psico_manager)):
-    logger.info("Gerando relatório...")
-    return manager.gerar_relatorio()
-
 
 @router.get("/{crp}", response_model=PsicologoResponse)
 def obter_psicologo(crp: str, manager: PsicologoManager = Depends(get_psico_manager)):
@@ -112,4 +107,4 @@ def remover_psicologo(crp: str, manager: PsicologoManager = Depends(get_psico_ma
     sucesso = manager.delete_psicologo(crp)
     if not sucesso:
         raise HTTPException(status_code=404, detail="Psicólogo não encontrado para exclusão.")
-    return {"mensagem": "Psicólogo removido com sucesso."}
+    return {"mensagem": "Psicólogo removido com sucesso."}
